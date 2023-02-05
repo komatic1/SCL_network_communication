@@ -1,0 +1,524 @@
+// Name: FB99
+// Symbolic Name: UDP_LOGGER
+// Symbol Comment:
+// Family: COMM
+// Version: 1.0
+// Author: SIEMENS
+// Last modified: 02/10/2012
+// Use: FB65,FB66,FB67,SFB4,SFC1,SFC20,SFC24
+// Size: 6296 bytes
+// Signature: generiert vom SCL Übersetzer Version: SCLCOMP K05.03.07.00_01.02.00.01 release
+
+{
+Scl_ResetOptions ;
+Scl_OverwriteBlocks:=           'y' ;
+Scl_GenerateReferenceData :=    'y' ;
+Scl_S7ServerActive:=            'n' ;
+Scl_CreateObjectCode:=          'y' ;
+Scl_OptimizeObjectCode:=        'y' ;
+Scl_MonitorArrayLimits:=        'n' ;
+Scl_CreateDebugInfo :=          'n' ;
+Scl_SetOKFlag:=                 'n' ;
+Scl_SetMaximumStringLength:=    '254'
+}
+ 
+ FUNCTION_BLOCK FB999
+TITLE ='UDP_Logger'
+AUTHOR : SIEMENS
+FAMILY : COMM
+NAME : UDP_LOG
+VERSION : '1.0'
+// reversed by komatic
+ 
+VAR_INPUT
+  iLogging_Level : INT ;   
+  iSeverity : INT ;   
+  iFacility : INT ;   
+  iMessage_Count : INT ;   
+  iMessage_Data : ARRAY  [1 .. 28 ] OF BYTE ;   
+  iWaitTime : TIME ;   
+  iConn_Data : ANY ;  
+  iConn_Data_st AT iConn_Data : STRUCT
+   a1 : WORD;
+   a2 : WORD;
+   a3 : WORD;
+   a4 : WORD;
+   a5 : WORD;
+  END_STRUCT ;
+  iNew_Message : BOOL ;   
+END_VAR
+VAR_OUTPUT
+  oBUSY : BOOL ;   
+  oERROR : BOOL ;   
+  oDONE : BOOL ;   
+  oConnected : BOOL ;   
+END_VAR
+VAR
+  sMessage_Buffer : ARRAY  [1 .. 15, 1 .. 28 ] OF BYTE ;   
+  sTON : SFB4;   
+  sTON_TIMEOUT : SFB4;   
+  sTDISCON : FB66;   
+  sTCON : FB65;   
+  sTUSEND : FB67;   
+  sSeverity : INT ;   
+  sFacility : INT ;   
+  sMessage_Count : INT ;   
+  sSend_Buffer : ARRAY  [1 .. 560 ] OF BYTE ;   
+  sSend_Buffer_d AT sSend_Buffer : ARRAY [1..140] OF DINT;
+  sBUSY : BOOL ;   
+  sERROR : BOOL ;   
+  sDONE : BOOL ;   
+  sConnected : BOOL ;   
+  sConnectionData : STRUCT    
+   rem_ip_addr : ARRAY  [1 .. 4 ] OF BYTE  := 4 (B#16#0) ;   
+   rem_port_nr : ARRAY  [1 .. 2 ] OF BYTE  := 2 (B#16#0) ;   
+   reserved : ARRAY  [1 .. 2 ] OF BYTE  := 2 (B#16#0) ;   
+  END_STRUCT ;   
+  sLast_Error : STRUCT    
+   eTCON : WORD ;   
+   eTDISCON : WORD ;   
+   eTUSEND : WORD ;   
+  END_STRUCT ;   
+  sSend_Length : INT ;   
+  SystemClock : DATE_AND_TIME ;  
+  SystemClock_st AT SystemClock : STRUCT
+  b0 : BYTE;
+  b1 : BYTE;
+  b2 : BYTE;
+  b3 : BYTE;
+  b4 : BYTE;
+  b5 : BYTE;
+ 
+  END_STRUCT;
+  ErrSystemClock : INT ;   
+  Month : STRING  [4 ];   
+  Month_ar AT Month : STRUCT
+    h : WORD;
+    ar : ARRAY [1..4] OF BYTE;
+    END_STRUCT;
+  sID : WORD ;   
+END_VAR
+VAR_TEMP
+  tRetval : INT ;   
+  tloop_counter : INT ;   
+  tloop_counter2 : INT ;   
+  tiVal : INT ;   
+  tbVal : BYTE ;   
+  tPRI : BYTE ;   
+  tDB_Length : WORD ;   
+  tWrite_Prot : BOOL ;   
+  TCON_Struct : STRUCT    
+   ANY_id : BYTE ;   
+   Source_DataType : BYTE ;   
+   Source_Length : WORD ;   
+   Source_DB_Number : WORD ;   
+   Byte_Pointer : DWORD ;   
+  END_STRUCT ;   
+ TCON_Struct_any AT TCON_Struct : ANY ;
+  String_Struct : STRUCT    
+   ANY_id : BYTE ;   
+   Source_DataType : BYTE ;   
+   Source_Length : WORD ;   
+   Source_DB_Number : WORD ;   
+   Byte_Pointer : DWORD ;   
+  END_STRUCT ;   
+  String_Struct_any AT String_Struct : ANY;
+  string_length : BYTE ;   
+END_VAR
+BEGIN
+sDONE:=false;
+sERROR:=false;
+tRetval:=0;
+tloop_counter:=0;
+tloop_counter2:=0;
+tbVal:=B#16#0;
+tiVal:=0;
+tPRI:=B#16#0;
+tRetval:=TEST_DB(DB_NUMBER :=  iConn_Data_st.a5
+                ,DB_LENGTH :=  tDB_Length
+                ,WRITE_PROT := tWrite_Prot
+                );
+ 
+TCON_Struct.ANY_id:=B#16#10;
+TCON_Struct.Source_DataType:=B#16#2;
+String_Struct.ANY_id:=B#16#10;
+String_Struct.Source_DataType:=B#16#2;
+IF tRetval=0 AND tDB_Length=W#16#68 THEN
+    TCON_Struct.Source_Length:=W#16#40;
+    TCON_Struct.Source_DB_Number:=iConn_Data_st.a5;
+    TCON_Struct.Byte_Pointer:=DW#16#84000000;
+    String_Struct.Source_Length:=W#16#4;
+    String_Struct.Source_DB_Number:=iConn_Data_st.a5;
+    String_Struct.Byte_Pointer:=DW#16#84000010;
+    tRetval:=BLKMOV(SRCBLK :=  String_Struct_any
+       ,DSTBLK :=  sID
+       );
+    String_Struct.Byte_Pointer:=DW#16#84000110;
+    tRetval:=BLKMOV(SRCBLK :=  String_Struct_any
+       ,DSTBLK :=  sConnectionData.rem_ip_addr
+       );
+    String_Struct.Source_Length:=W#16#2;
+    String_Struct.Byte_Pointer:=DW#16#84000140;
+    tRetval:=BLKMOV(SRCBLK :=  String_Struct_any
+       ,DSTBLK :=  sConnectionData.rem_port_nr
+       );
+    IF iLogging_Level>0 AND NOT sConnected THEN
+        sConnected:=false;
+        sTCON(REQ := true
+           ,ID := sID
+           ,CONNECT := TCON_Struct_any
+           );
+        sBUSY:= sTCON.BUSY;
+        sTON(IN :=false
+               ,PT :=T#0MS 
+               );
+        sTON_TIMEOUT(IN :=true
+           ,PT :=T#2S 
+           );
+        IF NOT sBUSY THEN
+            IF sTCON.DONE THEN
+                sTON_TIMEOUT(IN :=false
+                       );
+                sTCON(REQ := false
+                   );
+                sConnected:=true;
+                sDONE:=true;
+                sLast_Error.eTCON:=W#16#0;
+            END_IF;
+            IF sTCON.ERROR THEN
+                sLast_Error.eTCON:=sTCON.STATUS;
+                sTON_TIMEOUT(IN :=false
+                       );
+                sTCON(REQ := false
+                   );
+                sBUSY:=false;
+                sERROR:=true;
+                IF sLast_Error.eTCON=W#16#80A3 THEN
+                    sConnected:=true;
+                    sLast_Error.eTCON:=W#16#0;
+                    sERROR:=false;
+                END_IF;   
+            END_IF;
+        END_IF;
+    END_IF;   
+    IF (iLogging_Level=0 AND sConnected OR sTON_TIMEOUT.Q OR sLast_Error.eTUSEND=W#16#80A1) AND NOT sBUSY THEN
+        sTON_TIMEOUT(IN :=false
+               ,PT :=T#0mS 
+               );
+        sTCON(REQ := false
+           );
+        sTUSEND(REQ := false
+                     );
+        sTUSEND.BUSY:=false;
+        sTON(IN :=false
+           );
+        sTDISCON(REQ := true
+                      ,ID := sID
+                      );
+        sConnected:=false;
+        sBUSY:=false;
+        IF     sTDISCON.STATUS=W#16#80A3 OR sTDISCON.DONE    THEN
+            IF sLast_Error.eTUSEND=W#16#80A1 THEN
+                sLast_Error.eTUSEND:=W#16#0;
+            END_IF;
+            sLast_Error.eTDISCON:=W#16#0;    
+            sDONE:=true;
+            sERROR:=false;
+            sTDISCON(REQ := false
+                      );
+        ELSE
+            IF sTDISCON.ERROR THEN
+                IF sTDISCON.STATUS<>W#16#80A3 THEN
+                    sLast_Error.eTDISCON:=sTDISCON.STATUS;
+                    sERROR:=true;
+                    sDONE:=false;
+                END_IF;   
+            END_IF;
+        END_IF;
+    END_IF;   
+    IF iNew_Message THEN
+        IF (iMessage_Count=0 OR sMessage_Count<iMessage_Count) AND sMessage_Count<15 THEN
+            IF TIME_TO_DINT(iWaitTime)<>0 THEN
+                sTON(IN :=true
+                   ,PT :=iWaitTime
+                   );
+            END_IF;
+            tRetval:=BLKMOV(SRCBLK :=  iMessage_Data
+               ,DSTBLK :=  sMessage_Buffer[sMessage_Count+1]
+               );
+            IF tRetval<>0 THEN
+                sERROR:=true;
+                sLast_Error.eTCON:=W#16#0;
+                sLast_Error.eTDISCON:=W#16#0;
+                sLast_Error.eTUSEND:=W#16#0;
+            ELSE
+                sMessage_Count:=sMessage_Count+1;
+            END_IF;   
+        END_IF;
+    END_IF;   
+    IF NOT sBUSY AND sConnected THEN
+        sTON(IN :=true
+           ,PT :=iWaitTime
+           );
+        IF sMessage_Count=0 THEN
+            sTON(IN :=false
+               ,PT :=T#0ms
+               );
+        END_IF;
+        IF (((((0<sMessage_Count) AND (TIME_TO_DINT(iWaitTime)=0)) AND (iMessage_Count=0)) OR
+              ((sMessage_Count<>0) AND sTON.Q)) OR ((iMessage_Count=sMessage_Count) AND (iMessage_Count<>0)))
+              OR (sMessage_Count=15)
+        THEN    
+            sTON(IN :=false
+               );
+            sTON.Q:=false;
+            sTON.ET:=T#0MS;
+            sSeverity:=0;
+            sFacility:=0;
+            IF sFacility<=iSeverity AND iSeverity<=7 THEN
+                sSeverity:=iSeverity;
+            END_IF;   
+            IF 0<=iFacility AND iFacility<=23 THEN
+                sFacility:=iFacility;
+            END_IF;
+            FOR tloop_counter:=1 TO 140 BY 1 DO
+                sSend_Buffer_d[tloop_counter]:=0;
+            END_FOR;
+            sSend_Length:=0;
+            tbVal:=SHL(IN:=INT_TO_BYTE(sFacility),N:=3);
+            tiVal:=BYTE_TO_INT(tbVal);
+            tiVal:=tiVal+sSeverity;
+            tPRI:=INT_TO_BYTE(tiVal);
+            sSend_Length:=sSend_Length+1;
+            sSend_Buffer[sSend_Length]:=B#16#3C;
+            tiVal:=BYTE_TO_INT(tPRI);
+            sSend_Length:=sSend_Length+1;
+            IF tiVal<10 THEN
+                tiVal:=tiVal+48;
+                sSend_Buffer[sSend_Length]:=INT_TO_BYTE(tiVal);
+            ELSIF tiVal<100 THEN
+                sSend_Buffer[sSend_Length]:=INT_TO_BYTE(tiVal/10+48);
+                sSend_Length:=sSend_Length+1;
+                sSend_Buffer[sSend_Length]:=INT_TO_BYTE(tiVal MOD 10 +48);
+            ELSE
+                sSend_Buffer[sSend_Length]:=INT_TO_BYTE(tiVal / 100 +48);
+                tiVal:=tiVal MOD 100;
+                sSend_Length:=sSend_Length+1;
+                sSend_Buffer[sSend_Length]:=INT_TO_BYTE(tiVal/10+48);
+                sSend_Length:=sSend_Length+1;
+                sSend_Buffer[sSend_Length]:=INT_TO_BYTE(tiVal MOD 10 +48);
+            END_IF;   
+            sSend_Length:=sSend_Length+1;
+            sSend_Buffer[sSend_Length]:=B#16#3E;
+            ErrSystemClock:=READ_CLK(CDT := SystemClock );
+            tiVal:=BCD_TO_INT(SystemClock_st.b1);
+           
+            CASE tiVal OF
+                1 :
+                    Month:='Jan';
+                2 :
+                    Month:='Feb';
+                3 :
+                    Month:='Mar';
+                4 :
+                    Month:='Apr';
+                5 :
+                    Month:='May';
+                6 :
+                    Month:='Jun';
+                7 :
+                    Month:='Jul';
+                8 :
+                    Month:='Aug';
+                9 :
+                    Month:='Sep';
+                10 :
+                    Month:='Oct';
+                11 :
+                    Month:='Nov';
+                12 :
+                    Month:='Dec';
+            ELSE:
+                Month:='000';
+            END_CASE;
+            FOR tloop_counter:=1 TO 3 BY 1 DO
+                sSend_Length:=sSend_Length+1;
+                sSend_Buffer[sSend_Length]:=Month_ar.ar[tloop_counter];
+            END_FOR;
+            sSend_Length:=sSend_Length+1;
+            sSend_Buffer[sSend_Length]:=B#16#20;
+            tiVal:=BCD_TO_INT(SystemClock_st.b2);
+            sSend_Length:=sSend_Length+1;
+            IF tiVal<10 THEN
+                sSend_Buffer[sSend_Length]:=B#16#20;
+                tiVal:=tiVal+48;
+                sSend_Length:=sSend_Length+1;
+                sSend_Buffer[sSend_Length]:=INT_TO_BYTE(tiVal);
+            ELSE
+                sSend_Buffer[sSend_Length]:=INT_TO_BYTE(tiVal/10 + 48);
+                sSend_Length:=sSend_Length+1;
+                sSend_Buffer[sSend_Length]:=INT_TO_BYTE(tiVal MOD 10 + 48);
+            END_IF;
+            sSend_Length:=sSend_Length+1;
+            sSend_Buffer[sSend_Length]:=B#16#20;
+            tiVal:=BCD_TO_INT(SystemClock_st.b3);
+            sSend_Length:=sSend_Length+1;
+            IF tiVal<10 THEN
+                sSend_Buffer[sSend_Length]:=B#16#30;
+                tiVal:=tiVal+48;
+                sSend_Length:=sSend_Length+1;
+                sSend_Buffer[sSend_Length]:=INT_TO_BYTE(tiVal);
+            ELSE
+                sSend_Buffer[sSend_Length]:=INT_TO_BYTE(tiVal/10 + 48);
+                sSend_Length:=sSend_Length+1;
+                sSend_Buffer[sSend_Length]:=INT_TO_BYTE(tiVal MOD 10 + 48);
+            END_IF;
+            sSend_Length:=sSend_Length+1;
+            sSend_Buffer[sSend_Length]:=B#16#3A;
+            tiVal:=BCD_TO_INT(SystemClock_st.b4);
+            sSend_Length:=sSend_Length+1;
+            IF tiVal<10 THEN
+                sSend_Buffer[sSend_Length]:=B#16#30;
+                tiVal:=tiVal+48;
+                sSend_Length:=sSend_Length+1;
+                sSend_Buffer[sSend_Length]:=INT_TO_BYTE(tiVal);
+            ELSE
+                sSend_Buffer[sSend_Length]:=INT_TO_BYTE(tiVal/10 + 48);
+                sSend_Length:=sSend_Length+1;
+                sSend_Buffer[sSend_Length]:=INT_TO_BYTE(tiVal MOD 10 + 48);
+            END_IF;
+            sSend_Length:=sSend_Length+1;
+            sSend_Buffer[sSend_Length]:=B#16#3A;
+            tiVal:=BCD_TO_INT(SystemClock_st.b5);
+            sSend_Length:=sSend_Length+1;
+            IF tiVal<10 THEN
+                sSend_Buffer[sSend_Length]:=B#16#30;
+                tiVal:=tiVal+48;
+                sSend_Length:=sSend_Length+1;
+                sSend_Buffer[sSend_Length]:=INT_TO_BYTE(tiVal);
+            ELSE
+                sSend_Buffer[sSend_Length]:=INT_TO_BYTE(tiVal/10 + 48);
+                sSend_Length:=sSend_Length+1;
+                sSend_Buffer[sSend_Length]:=INT_TO_BYTE(tiVal MOD 10 + 48);
+            END_IF;
+            String_Struct.Source_Length:=W#16#1;
+            String_Struct.Source_DB_Number:=iConn_Data_st.a5;
+            String_Struct.Byte_Pointer:=DW#16#84000208;
+            tRetval:=BLKMOV(SRCBLK :=  String_Struct_any
+               ,DSTBLK :=  string_length
+               );
+            sSend_Length:=sSend_Length+1;
+            sSend_Buffer[sSend_Length]:=B#16#20;
+            FOR tloop_counter:=1 TO BYTE_TO_INT(string_length) BY 1 DO
+                String_Struct.Byte_Pointer:=DINT_TO_DWORD(DWORD_TO_DINT(String_Struct.Byte_Pointer)+8);
+                sSend_Length:=sSend_Length+1;
+                tRetval:=BLKMOV(SRCBLK :=  String_Struct_any
+                   ,DSTBLK :=  sSend_Buffer[sSend_Length]
+                   );
+            END_FOR;
+            String_Struct.Source_Length:=W#16#1;
+            String_Struct.Source_DB_Number:=iConn_Data_st.a5;
+            String_Struct.Byte_Pointer:=DW#16#84000318;
+            tRetval:=BLKMOV(SRCBLK :=  String_Struct_any
+               ,DSTBLK :=  string_length
+               );
+            sSend_Length:=sSend_Length+1;
+            sSend_Buffer[sSend_Length]:=B#16#20;
+            FOR tloop_counter:=1 TO BYTE_TO_INT(string_length) BY 1 DO
+                String_Struct.Byte_Pointer:=DINT_TO_DWORD(DWORD_TO_DINT(String_Struct.Byte_Pointer)+8);
+                sSend_Length:=sSend_Length+1;
+                tRetval:=BLKMOV(SRCBLK :=  String_Struct_any
+                   ,DSTBLK :=  sSend_Buffer[sSend_Length]
+                   );
+            END_FOR;
+            sSend_Length:=sSend_Length+1;
+            sSend_Buffer[sSend_Length]:=B#16#3A;           
+            FOR tloop_counter2:=1 TO sMessage_Count BY 1 DO
+                FOR tloop_counter:=1 TO BYTE_TO_INT(sMessage_Buffer[tloop_counter2,1]) BY 1 DO
+                    sSend_Length:=sSend_Length+1;
+                    sSend_Buffer[sSend_Length]:=sMessage_Buffer[tloop_counter2,tloop_counter];
+                END_FOR;  
+            END_FOR;
+            sMessage_Count:=0;
+            sTUSEND (REQ := true
+                         ,ID := sID
+                         ,LEN := sSend_Length
+                         ,DATA :=  sSend_Buffer
+                         ,ADDR := sConnectionData
+                         );
+            sBUSY:=sTUSEND.BUSY;
+            IF NOT sBUSY THEN
+                IF sTUSEND.DONE THEN
+                    sBUSY:=false;
+                    sDONE:=true;
+                    sLast_Error.eTUSEND:=W#16#0;
+                    sTON(IN :=true
+                       ,PT :=iWaitTime
+                       );
+                    sTUSEND (REQ := false
+                         );
+                ELSE
+                    IF sTUSEND.ERROR THEN
+                        sLast_Error.eTUSEND:=sTUSEND.STATUS;
+                        sBUSY:=false;
+                        sERROR:=true;
+                        sTUSEND (REQ := false
+                             );
+                    END_IF;
+                END_IF;
+            END_IF;   
+        END_IF;
+    ELSIF sConnected AND sBUSY THEN
+        sTUSEND ();
+        IF sTUSEND.DONE THEN
+            sBUSY:=false;
+            sDONE:=true;
+            sLast_Error.eTUSEND:=W#16#0;
+            sTON(IN :=true
+               ,PT :=iWaitTime
+               );
+            sTUSEND (REQ := false
+                     );
+        ELSIF sTUSEND.ERROR THEN
+            sLast_Error.eTUSEND:=sTUSEND.STATUS;
+            sBUSY:=false;
+            sERROR:=true;
+            sTUSEND (REQ := false
+                 );
+        END_IF;
+    ELSE   
+        IF sBUSY THEN
+            sTCON ( );
+            IF sTCON.DONE THEN
+                sTON_TIMEOUT(IN :=false
+                   );
+                sTCON(REQ := false
+                       );
+                sConnected:=true;
+                sBUSY:=false;
+                sDONE:=true;
+                sLast_Error.eTCON:=W#16#0;
+        ELSIF sTCON.ERROR THEN
+                sLast_Error.eTCON:=sTCON.STATUS;
+                sTON_TIMEOUT(IN :=false
+                   );
+                sTCON(REQ := false
+                       );
+                sBUSY:=false;
+                sERROR:=true;
+                IF sLast_Error.eTCON=W#16#80A3 THEN
+                    sConnected:=true;
+                    sLast_Error.eTCON:=W#16#0;
+                    sERROR:=false;
+                END_IF;
+            END_IF;
+        END_IF;   
+    END_IF;
+END_IF;   
+ 
+oBUSY:=sBUSY;   
+oERROR:=sERROR; 
+oDONE:=sDONE;
+oConnected:=sConnected;
+ 
+END_FUNCTION_BLOCK

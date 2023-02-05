@@ -1,0 +1,1602 @@
+// Name: FB111
+// Symbolic Name: MB_PAC94
+// Symbol Comment:
+// Family: COMM
+// Version: 1.0
+// Author: SIEMENS
+// Last modified: 07/13/2012
+// Use: FB103,SFB4,SFC1,SFC20,SFC24,SFC51,SFC52
+// Size: 36528bytes
+// Signature: compiled by SCL compiler version: SCLCOMP K05.03.06.00_01.03.00.01 release
+
+{
+Scl_ResetOptions ;
+Scl_OverwriteBlocks:=           'y' ;
+Scl_GenerateReferenceData :=    'y' ;
+Scl_S7ServerActive:=            'n' ;
+Scl_CreateObjectCode:=          'y' ;
+Scl_OptimizeObjectCode:=        'y' ;
+Scl_MonitorArrayLimits:=        'n' ;
+Scl_CreateDebugInfo :=          'n' ;
+Scl_SetOKFlag:=                 'n' ;
+Scl_SetMaximumStringLength:=    '254'
+}
+FUNCTION_BLOCK FB1111
+TITLE ='MB_PAC94'
+AUTHOR : SIEMENS
+FAMILY : COMM
+NAME : MB_PAC94
+VERSION : '1.0'
+// reversed by komatic
+ 
+VAR_INPUT
+  INIT : BOOL ;    //TRUE: read in and initialize CONFIG_DB
+  CONFIG_DB : BLOCK_DB ;    //DB number of the PAC config block
+  MONITOR : TIME  := T#500MS;    //Time to wait for connection and data handling
+  REG_KEY : STRING  [17 ] := '                 ';    //Registration key for licensing
+  REG_KEY_b AT REG_KEY :
+  STRUCT
+            length: BYTE;
+            act_length: BYTE;
+            str: ARRAY [0..15] OF BYTE;
+  END_STRUCT;
+ 
+  CYCLICAL : TIME  := T#5S;    //0s: no processing; >0s: cyclical processing
+  CONN_CNT : INT ;    //Count of connections, which are established parallel in 1 CPU cycle
+  CONN_WAIT : TIME ;    //Time to wait to initiate the grouped connections
+END_VAR
+VAR_OUTPUT
+  DONE : BOOL ;    //Job finished without error
+  ERROR : BOOL ;    //Job finished with error
+  STATUS : WORD ;    //Error number
+  IDENT_CODE : STRING  [18 ];    //Identification for licensing   
+END_VAR
+VAR
+  TEST_DB : STRUCT    
+   RET_WERT : INT ;   
+   LENGTH : WORD ;   
+   WRITE_PROTECT : BOOL ;   
+  END_STRUCT ;   
+  sSTATUS_FUNC : STRING  [8 ];   
+  Max_Number_of_IDs : INT  := 94;   
+  Used_Number_of_IDs : INT ;   
+  Not_Used_Number_of_IDs : INT ;   
+  Max_Number_of_PACs : INT  := 512;   
+  Used_Number_of_PACs : INT ;   
+  Not_Used_Number_of_PACs : INT ;   
+  Number_of_finished_IDs : INT ;   
+  Start_Address_IDs : INT ;   
+  TON : SFB4;   
+  TON_CYCLICAL : SFB4;   
+  Cycle_start : BOOL ;   
+  Cycle_running : BOOL ;   
+  CPU_Data_Read : BOOL  := TRUE;   
+  sINIT : BOOL ;   
+  sANLAUF_FEHLER : BOOL ;   
+  Last_Data_Area : BOOL ;   
+  Current_PAC_Error : BOOL ;   
+  More_IDs_found : BOOL ;   
+  More_PACs_found : BOOL ;   
+  Read_FW : BOOL ;   
+  Check_interrupt : BOOL ;   
+  Connection_type : BYTE  := B#16#11;   
+  Local_device_id : BYTE ;   
+  Local_tsap_id_len : BYTE ;   
+  sTI : INT ;   
+  sCONFIG_DB : WORD ;   
+  sCONFIG_DB_Length : WORD ;   
+  sSTATUS_TEMP : WORD ;   
+  sSTATUS_TIMER : WORD ;   
+  sSTATUS_CODE : STRING  [17 ]; 
+  sSTATUS_CODE_b AT sSTATUS_CODE :
+    STRUCT
+            length: BYTE;
+            act_length: BYTE;
+            str: ARRAY [0..15] OF BYTE;
+    END_STRUCT;
+ 
+  sMONITOR : TIME ;   
+  id_nr : INT ;   
+  i : INT ;   
+  j : INT ;   
+  k : INT ;   
+  L : INT ;   
+  pos : INT ;   
+  reg : INT ;   
+  TCP_COMM_Durchlaeufe : INT ;   
+  sIDB_Nr : WORD ;   
+  sExc_BytCnt_StaAdr : DINT ;   
+  snd_time : BYTE ;   
+  rcv_time : BYTE ;   
+  sAREA_1 : ARRAY  [1 .. 2 ] OF CHAR  := 'M', 'O';   
+  sAREA_2 : ARRAY  [1 .. 4 ] OF CHAR  := 'D', 'B', 'U', 'S';   
+  sACODE : ARRAY  [0 .. 17 ] OF BYTE ;   
+  sSTATUS : WORD ;   
+  First_STATUS : WORD ;   
+  RET_VALUE : INT ;   
+  sTCP_COMM : STRUCT    
+   CONN_ESTABLISHED : BOOL ;   
+   BUSY : BOOL ;   
+   DONE : BOOL ;   
+   ERROR : BOOL ;   
+   STATUS : WORD ;   
+   STATUS_FUNC : STRING  [8 ];   
+  END_STRUCT ;   
+  sTimestamp : DATE_AND_TIME ;
+  sTimestamp_st AT sTimestamp : STRUCT
+   a : DWORD;
+   b : DWORD;
+  END_STRUCT; 
+  CPU_DATA : STRUCT    
+   Index : WORD ;   
+   CPUIdent : ARRAY  [1 .. 20 ] OF BYTE ;   
+   Reserved : WORD ;   
+   MajorVersion : WORD ;   
+   MinorVersion_1 : BYTE ;   
+   MinorVersion_2 : BYTE ;   
+  END_STRUCT ;   
+  Data_Blocks : STRUCT    
+   Enable : ARRAY  [1 .. 8 ] OF BOOL  := TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE;   
+   Start_Address : ARRAY  [1 .. 8 ] OF WORD  := W#16#D5, W#16#EA62, W#16#EA63, W#16#EA64, W#16#1, W#16#CD, W#16#205, W#16#AF1;   
+   Length : ARRAY  [1 .. 8 ] OF WORD  := W#16#2, W#16#1, W#16#1, W#16#1, W#16#4A, W#16#A, W#16#2, W#16#14;   
+   Address_in_DB : ARRAY  [1 .. 8 ] OF WORD  := W#16#B6, W#16#1, W#16#2, W#16#3, W#16#12, W#16#A6, W#16#BA, W#16#BE;   
+  END_STRUCT ;  
+ 
+Data_Blocks_w AT Data_Blocks : STRUCT
+c : ARRAY[1..1] OF WORD;
+b : ARRAY[1..8] OF WORD;
+a : ARRAY[1..10] OF WORD; 
+  END_STRUCT ; 
+  TCP_COMM : FB103;   
+  Connection : ARRAY  [1 .. 94 ] OF STRUCT    
+   STATE : STRUCT    
+    AUFTRAG_LAEUFT : BOOL ;   
+    SEND : BOOL ;   
+    RECV1 : BOOL ;   
+    RECV2 : BOOL ;   
+    CON : BOOL ;   
+    DISCON : BOOL ;   
+   END_STRUCT ;   
+   Used : BOOL ;   
+   Running : BOOL ;   
+   Conn_established : BOOL ;   
+   Error : BOOL ;   
+   Done : BOOL ;   
+   Finished : BOOL ;   
+   Number_of_PACs : INT ;   
+   Number_of_first_PAC : INT ;   
+   Address_in_ConfigDB : WORD ;   
+   sConn : DINT ;   
+   Conn : STRUCT    
+    block_length : WORD  := W#16#40;   
+    id : WORD ;   
+    connection_type : BYTE  := B#16#11;   
+    active_est : BOOL  := TRUE;   
+    local_device_id : BYTE ;   
+    local_tsap_id_len : BYTE ;   
+    rem_subnet_id_len : BYTE ;   
+    rem_staddr_len : BYTE  := B#16#4;   
+    rem_tsap_id_len : BYTE  := B#16#2;   
+    next_staddr_len : BYTE ;   
+    local_tsap_id : ARRAY  [1 .. 16 ] OF BYTE  := B#16#0, B#16#0, B#16#0, B#16#0, B#16#0, B#16#0, B#16#0, B#16#0, B#16#0, B#16#0, B#16#0, B#16#0, B#16#0, B#16#0, B#16#0, B#16#0;   
+    rem_subnet_id : ARRAY  [1 .. 6 ] OF BYTE  := B#16#0, B#16#0, B#16#0, B#16#0, B#16#0, B#16#0;   
+    rem_staddr : ARRAY  [1 .. 6 ] OF BYTE  := B#16#0, B#16#0, B#16#0, B#16#0, B#16#0, B#16#0;   
+    rem_tsap_id : ARRAY  [1 .. 16 ] OF BYTE  := B#16#1, B#16#F6, B#16#0, B#16#0, B#16#0, B#16#0, B#16#0, B#16#0, B#16#0, B#16#0, B#16#0, B#16#0, B#16#0, B#16#0, B#16#0, B#16#0;   
+    next_staddr : ARRAY  [1 .. 6 ] OF BYTE  := B#16#0, B#16#0, B#16#0, B#16#0, B#16#0, B#16#0;   
+    spare : WORD ;   
+   END_STRUCT ;   
+   PAC : STRUCT    
+    T_Blocks_running : BOOL ;   
+    Current_PAC_running : BOOL ;   
+    Data_Area_finished : INT ;   
+    Current_Data_Area : INT ;   
+    Curr_PAC_Number : INT ;   
+    Current_DB : WORD ;   
+    Current_DB_Length : WORD ;   
+   END_STRUCT ;   
+   Enable_Found : BOOL ;   
+   Delete_Data_Curr_PAC : BOOL ;   
+   ENQ : BOOL ;   
+   sWRITE_READ : BOOL ;   
+   DATA_TRANSFER : BOOL ;   
+   SEND_RCV : BOOL ;   
+   CONNECT_DISCONNECT : BOOL ;   
+   sFUNC_CODE : BYTE ;   
+   sLEN_RECV2 : INT ;   
+   TCP_COMM_Length : INT ;   
+   Current_TI : INT ;   
+   MONITOR : TIME ;   
+   T_CONN : ARRAY  [1 .. 5 ] OF WORD ;   
+   T_DATA : ARRAY  [1 .. 5 ] OF WORD ;   
+   TCP_COMM_Instance : STRUCT    
+    ID : WORD ;   
+    DATA_TRANSFER : BOOL ;   
+    SEND_RCV : BOOL ;   
+    CONNECT_DISCONNECT : BOOL ;   
+    KEEP_ALIVE : BOOL ;   
+    ANLAUF : BOOL ;   
+    LENGTH : INT ;   
+    MONITOR : TIME ;   
+    LOGGING_LEVEL : INT  := 1;   
+    MESSAGE_COUNT : INT  := 15;   
+    WAIT_TIME : TIME  := T#8MS;   
+    CONN_DB : WORD ;   
+    CONN_ESTABLISHED : BOOL ;   
+    BUSY : BOOL ;   
+    DONE : BOOL ;   
+    ERROR : BOOL ;   
+    STATUS : WORD ;   
+    STATUS_FUNC : STRING  [8 ];   
+    ENQ : BOOL ;   
+    UDT_CONN : ARRAY  [1 .. 10 ] OF BYTE ;   
+    DATA : ARRAY  [1 .. 10 ] OF BYTE ;   
+    FTCON_REQ : BOOL ;   
+    FTCON_ID : WORD ;   
+    FTCON_DONE : BOOL ;   
+    FTCON_BUSY : BOOL ;   
+    FTCON_ERROR : BOOL ;   
+    FTCON_STATUS : WORD ;   
+    FTCON_CONNECT : ARRAY  [1 .. 10 ] OF BYTE ;   
+    FTCON_REQ_old : BOOL ;   
+    FTCON_SFC_active : BOOL ;   
+    DUMMY_2 : BYTE ;   
+    FTSEND_REQ : BOOL ;   
+    FTSEND_ID : WORD ;   
+    FTSEND_LEN : INT ;   
+    FTSEND_DONE : BOOL ;   
+    FTSEND_BUSY : BOOL ;   
+    FTSEND_ERROR : BOOL ;   
+    FTSEND_STATUS : WORD ;   
+    FTSEND_DATA : ARRAY  [1 .. 10 ] OF BYTE ;   
+    FTSEND_REQ_old : BOOL ;   
+    FTSEND_SFC_active : BOOL ;   
+    DUMMY_3 : BYTE ;   
+    FTRCV_EN_R : BOOL ;   
+    FTRCV_ID : WORD ;   
+    FTRCV_LEN : INT ;   
+    FTRCV_NDR : BOOL ;   
+    FTRCV_BUSY : BOOL ;   
+    FTRCV_ERROR : BOOL ;   
+    FTRCV_STATUS : WORD ;   
+    FTRCV_RCVD_LEN : INT ;   
+    FTRCV_DATA : ARRAY  [1 .. 10 ] OF BYTE ;   
+    FTRCV_REQ_old : BOOL ;   
+    FTRCV_SFC_active : BOOL ;   
+    DUMMY_4 : BYTE ;   
+    FTDISCON_REQ : BOOL ;   
+    FTDISCON_ID : WORD ;   
+    FTDISCON_DONE : BOOL ;   
+    FTDISCON_BUSY : BOOL ;   
+    FTDISCON_ERROR : BOOL ;   
+    FTDISCON_STATUS : WORD ;   
+    FTDISCON_REQ_old : BOOL ;   
+    FTDISCON_SFC_active : BOOL ;   
+    DUMMY_5 : BYTE ;   
+    TON_IN : BOOL ;   
+    TON_PT : TIME ;   
+    TON_Q : BOOL ;   
+    TON_ET : TIME ;   
+    TON_STATE : BYTE ;   
+    TON_STIME : TIME ;   
+    TON_ATIME : TIME ;   
+    TDISCON_MONITORING : TIME ;   
+    MONITOR_TIME : TIME ;   
+    Number_of_Function : INT ;   
+    Save_STATUS : INT ;   
+    Save_ERROR : BOOL ;   
+    Save_DONE : BOOL ;   
+    MONITOR_active : BOOL ;   
+    TCON_Req : BOOL ;   
+    TSEND_Req : BOOL ;   
+    TRCV_Req : BOOL ;   
+    TDISCON_Req : BOOL ;   
+    TCON_Busy : BOOL ;   
+    TSEND_Busy : BOOL ;   
+    TRCV_Busy : BOOL ;   
+    TDISCON_Busy : BOOL ;   
+    ENQ_Save : BOOL ;   
+    OrderErrorDiscon : BOOL ;   
+    Logging_Level_Old : INT ;   
+   END_STRUCT ;   
+  END_STRUCT ;   
+  RDSYSST : STRUCT    
+   RET_WERT : INT ;   
+   REQ : BOOL ;   
+   BUSY : BOOL ;   
+   SZL_HEADER : STRUCT    
+    LENTHDR : WORD ;   
+    N_DR : WORD ;   
+   END_STRUCT ;   
+   SZL_11C_5 : STRUCT    
+    index : WORD ;   
+    serialn : ARRAY  [0 .. 23 ] OF CHAR ;   
+    res : ARRAY  [1 .. 4 ] OF WORD ;   
+   END_STRUCT ;   
+  END_STRUCT ;   
+ 
+  sHoldingRegisterState : ARRAY  [0 .. 24 ] OF BYTE ;   
+  device_tsap : ARRAY  [1 .. 6 ] OF BYTE ;   
+  device_tsap_st AT device_tsap : STRUCT
+  t : INT;
+  s : WORD; 
+  w : WORD;
+  END_STRUCT;
+  BasicTypes : STRING  [19 ]; 
+  BasicTypes_b AT BasicTypes :
+  STRUCT
+            length: BYTE;
+            act_length: BYTE;
+            str: ARRAY [0..15] OF BYTE;
+  END_STRUCT;
+ 
+  SendBuffer : ARRAY  [1 .. 260 ] OF BYTE ;   
+  SendBuffer_w AT SendBuffer : ARRAY [1..130] OF WORD;
+  RecvBuffer : ARRAY  [1 .. 260 ] OF BYTE ;   
+  RecvBuffer_w AT RecvBuffer : ARRAY [1..130] OF WORD;
+  Device : INT ;   
+  Next_ID_Address : INT ;   
+  sSEND_BUFFER : DINT ;   
+  sRECV_BUFFER : DINT ;   
+  BytePointer : DWORD ;  
+  BytePointer_w AT BytePointer : ARRAY[0..1] OF WORD; 
+  sCONN_CNT : INT ;
+  sCONN_WAIT : TIME ;   
+  start_Cons : INT ;   
+  TON_CONN_CNT : SFB4;   
+  TON_CONN_CNT_running : BOOL ;   
+  Conn_cnt_full : BOOL ;   
+  Next_ID : BOOL ;   
+  LOGGING_LEVEL : INT ;   
+  MESSAGE_COUNT : INT  := 15;   
+  WAIT_TIME : TIME  := T#8MS;   
+  wCONN_DB : WORD ;   
+  address : DINT ;   
+END_VAR
+VAR_TEMP
+  TCON_Struct : STRUCT    
+   ANY_id : WORD ;   
+   Length : WORD ;   
+   DB_Number : WORD ;   
+   Byte_Pointer : DWORD ;   
+  END_STRUCT ; 
+TCON_Struct_any AT TCON_Struct : ANY; 
+  TDATA_Struct : STRUCT    
+   ANY_id : WORD ;   
+   Length : WORD ;   
+   DB_Number : WORD ;   
+   Byte_Pointer : DWORD ;   
+  END_STRUCT ;  
+TDATA_Struct_any AT TDATA_Struct : ANY; 
+  SRCBLK_Struct : STRUCT    
+   ANY_id : WORD ;   
+   Length : WORD ;   
+   DB_Number : WORD ;   
+   Byte_Pointer : DWORD ;   
+  END_STRUCT ; 
+  SRCBLK_Struct_any AT SRCBLK_Struct : ANY;
+  DSTBLK_Struct : STRUCT    
+   ANY_id : WORD ;   
+   Length : WORD ;   
+   DB_Number : WORD ;   
+   Byte_Pointer : DWORD ;   
+  END_STRUCT ;   
+DSTBLK_Struct_any AT DSTBLK_Struct : ANY;
+ 
+  tSProductID : STRING  [19 ];   
+  tSProductID_b AT tSProductID : STRUCT
+    length      : BYTE;
+    act_length  : BYTE;
+    str : ARRAY [0..17] OF BYTE;
+    END_STRUCT;
+  tALicenseKey : ARRAY  [0 .. 17 ] OF BYTE ;   
+END_VAR
+BEGIN
+IF Check_interrupt THEN (*A7d0*)
+    Cycle_running:=FALSE;
+    Cycle_start:=FALSE;
+    sANLAUF_FEHLER:=TRUE;
+    ERROR:=TRUE;
+    STATUS:=W#16#A080;
+END_IF; (*A7d0*)
+Check_interrupt:=TRUE;
+DSTBLK_Struct.ANY_id:=W#16#1002;
+SRCBLK_Struct.ANY_id:=W#16#1002;
+DONE:=FALSE;
+IF NOT(sANLAUF_FEHLER) THEN (*A7d1*)
+    ERROR:=FALSE;
+    STATUS:=W#16#0;
+END_IF; (*A7d1*)
+IF CPU_Data_Read THEN (*A7d2*)
+    IF NOT(Read_FW) THEN (*A7d3*)
+        RDSYSST.RET_WERT:=RDSYSST(REQ := TRUE
+         ,SZL_ID := W#16#111
+         ,INDEX :=  W#16#6
+         ,BUSY := RDSYSST.BUSY
+         ,SZL_HEADER := RDSYSST.SZL_HEADER
+         ,DR :=  CPU_DATA
+         );
+    ELSE (*A7d3*)
+         RDSYSST.RET_WERT:=RDSYSST(REQ := TRUE
+         ,SZL_ID := W#16#111
+         ,INDEX :=  W#16#7
+         ,BUSY := RDSYSST.BUSY
+         ,SZL_HEADER := RDSYSST.SZL_HEADER
+         ,DR :=  CPU_DATA
+         );
+    END_IF;     //RDSYSST_at.a[17]
+    IF NOT RDSYSST.BUSY THEN (*A7d2*)
+        IF RDSYSST.RET_WERT=0 THEN (*A7d6*)
+            IF NOT(Read_FW) THEN (*A7d7*)
+                CASE WORD_TO_INT(BYTE_TO_WORD(CPU_DATA.CPUIdent[8]) AND W#16#F) OF
+                    1 :
+                        Local_device_id:=B#16#1;
+                    4 :
+                        IF CPU_DATA.CPUIdent[6]=B#16#33 THEN (*A7dd*)
+                            Local_device_id:=B#16#2;
+                        ELSE
+                            Local_device_id:=B#16#5;
+                        END_IF;
+                    6 :
+                        Local_device_id:=B#16#5;
+                    5,7 :
+                        Local_device_id:=B#16#2;
+                        Read_FW:=true;
+                    8 :
+                        Local_device_id:=B#16#3;
+                ELSE:
+                    ERROR:=true;
+                    STATUS:=W#16#A086;
+                END_CASE;
+                CPU_Data_Read:=(ERROR) OR Read_FW;
+            ELSE
+                IF WORD_TO_INT(CPU_DATA.MajorVersion AND W#16#FF)<=2 THEN
+                    IF BYTE_TO_INT(CPU_DATA.MinorVersion_1) <5 THEN
+                        Connection_type:=B#16#1;
+                    END_IF; (*A7e6*)
+                END_IF;   
+                CPU_Data_Read:=FALSE;
+                Read_FW:=FALSE;
+            END_IF;   
+        ELSE   
+            ERROR:=TRUE;
+            sANLAUF_FEHLER:=TRUE;
+            STATUS:=INT_TO_WORD(RDSYSST.RET_WERT);
+            sSTATUS_FUNC:='RDSYSST';
+        END_IF;   
+    END_IF;
+END_IF; (*A7d2*)
+ 
+IF (NOT(sINIT)) AND INIT THEN (*A7e9*)
+    IF Cycle_running THEN (*A7ea*)
+        ERROR:=TRUE;
+        STATUS:=W#16#A096;
+    ELSE (*A7ea*)
+        SRCBLK_Struct_any:=sIDB_Nr;
+        sIDB_Nr:=SRCBLK_Struct.DB_Number;
+        Check_interrupt:=FALSE;
+        sANLAUF_FEHLER:=FALSE;
+        ERROR:=FALSE;
+        Cycle_start:=FALSE;
+        Cycle_running:=FALSE;
+        Last_Data_Area:=FALSE;
+        More_IDs_found:=FALSE;
+        Read_FW:=FALSE;
+        More_PACs_found:=FALSE;
+        STATUS:=W#16#0;
+        sSTATUS:=W#16#0;
+        sSTATUS_TEMP:=W#16#0;
+        sSTATUS_FUNC:='        ';
+        sSTATUS_CODE:='';
+        Used_Number_of_PACs:=0;
+        Used_Number_of_IDs:=0;
+        Not_Used_Number_of_IDs:=0;
+        Not_Used_Number_of_PACs:=0;
+        Number_of_finished_IDs:=0;
+        Start_Address_IDs:=0;
+        Device:=0;
+        sTI:=0;
+        sCONFIG_DB:=W#16#0;
+        sCONFIG_DB_Length:=W#16#0;
+        Next_ID_Address:=sTI;
+        First_STATUS:=sCONFIG_DB_Length;
+        sTCP_COMM.CONN_ESTABLISHED:=FALSE;
+        sTCP_COMM.BUSY:=FALSE;
+        sTCP_COMM.DONE:=FALSE;
+        sTCP_COMM.ERROR:=FALSE;
+        sTCP_COMM.STATUS:=W#16#0;
+        sTCP_COMM.STATUS_FUNC:='';
+        TON(IN := FALSE  );
+        TON_CYCLICAL(IN := FALSE );
+        TON_CONN_CNT(IN := FALSE );
+        TON_CONN_CNT_running:=FALSE;
+        Conn_cnt_full:=FALSE;
+        start_Cons:=0;
+        Next_ID:=FALSE;
+        sCONN_CNT:=0;
+        sCONN_WAIT:=T#0MS;
+       
+        FOR id_nr:=1 TO Max_Number_of_IDs  BY 1 DO
+            Connection[id_nr].STATE.AUFTRAG_LAEUFT:=FALSE;
+            Connection[id_nr].STATE.SEND:=FALSE;
+            Connection[id_nr].STATE.RECV1:=FALSE;
+            Connection[id_nr].STATE.RECV2:=FALSE;
+            Connection[id_nr].STATE.CON:=FALSE;
+            Connection[id_nr].STATE.DISCON:=FALSE;
+            Connection[id_nr].Conn_established:=FALSE;
+            Connection[id_nr].Used:=FALSE;
+            Connection[id_nr].Error:=FALSE;
+            Connection[id_nr].Done:=FALSE;
+            Connection[id_nr].Finished:=FALSE;
+            Connection[id_nr].Number_of_PACs:=0;
+            Connection[id_nr].Number_of_first_PAC:=0;
+            Connection[id_nr].Address_in_ConfigDB:=W#16#0;
+            Connection[id_nr].PAC.T_Blocks_running:=FALSE;
+            Connection[id_nr].PAC.Current_PAC_running:=FALSE;
+            Connection[id_nr].PAC.Data_Area_finished:=0;
+            Connection[id_nr].PAC.Current_Data_Area:=0;
+            Connection[id_nr].PAC.Curr_PAC_Number:=0;
+            Connection[id_nr].PAC.Current_DB:=W#16#0;
+            Connection[id_nr].Enable_Found:=FALSE;
+            Connection[id_nr].Delete_Data_Curr_PAC:=FALSE;
+            Connection[id_nr].ENQ:=FALSE;
+            Connection[id_nr].Current_TI:=0;
+            Connection[id_nr].Conn.id:=W#16#0;
+        END_FOR;
+        SRCBLK_Struct_any:=sIDB_Nr;
+        sIDB_Nr:=SRCBLK_Struct.DB_Number;
+        SRCBLK_Struct_any:=SendBuffer[1];
+        sSEND_BUFFER:=DWORD_TO_DINT(SHR(IN:=(DW#16#FFFFFF AND SRCBLK_Struct.Byte_Pointer),N:=3));
+        SRCBLK_Struct_any:=RecvBuffer[1];
+        sRECV_BUFFER:=DWORD_TO_DINT(SHR(IN:=(DW#16#FFFFFF AND SRCBLK_Struct.Byte_Pointer),N:=3));
+        IF sIDB_Nr=Block_DB_TO_WORD(CONFIG_DB) THEN
+            sSTATUS:=W#16#A07E;
+        ELSE
+            TEST_DB.RET_WERT:=TEST_DB(DB_NUMBER := Block_DB_TO_WORD(CONFIG_DB)
+            ,DB_LENGTH := TEST_DB.LENGTH
+            ,WRITE_PROT := TEST_DB.WRITE_PROTECT
+            );
+            IF TEST_DB.RET_WERT<>0 THEN (*A7f0*)
+                sSTATUS:=INT_TO_WORD(TEST_DB.RET_WERT);
+                sSTATUS_FUNC:='TEST_DB';
+            ELSIF WORD_TO_DINT(TEST_DB.LENGTH)<(Max_Number_of_PACs/8)+14 THEN (*A7f2*)
+                sSTATUS:=W#16#A001;
+            ELSE (*A7f2*)
+                sCONFIG_DB:=Block_DB_TO_WORD(CONFIG_DB);
+                sCONFIG_DB_Length:=TEST_DB.LENGTH;
+                FOR i:=0 TO (Max_Number_of_PACs/32)-1 BY 1 DO
+                    CONFIG_DB.DD[4*i]:=DW#16#0;
+                END_FOR;
+                IF CONFIG_DB.DD[(Max_Number_of_PACs/8)+2]<>DW#16#6FFFFFFD THEN (*A7f5*)   
+                    sSTATUS:=W#16#A07F;
+                ELSE (*A7f5*)
+                    Start_Address_IDs:=(Max_Number_of_PACs/8)+2;
+                    FOR id_nr:=1 TO Max_Number_of_IDs BY 1 DO
+                        FOR i:=Start_Address_IDs TO WORD_TO_INT(sCONFIG_DB_Length)-12 BY 1 DO
+                            IF CONFIG_DB.DD[i]=DW#16#6FFFFFFD THEN
+                                Connection[id_nr].Conn.id:=CONFIG_DB.DW[i-2];
+                                Connection[id_nr].Address_in_ConfigDB:=INT_TO_WORD(i-2);
+                                Start_Address_IDs:=i+1;
+                                IF Connection[id_nr].Conn.id<>W#16#0 THEN
+                                    IF WORD_TO_INT(Connection[id_nr].Conn.id)>4095 THEN
+                                        sSTATUS:=W#16#A07A;
+                                    ELSE
+                                        IF (id_nr<>1) AND (Connection[id_nr].Conn.id<>W#16#0) THEN 
+                                            FOR k:=1 TO id_nr-1 BY 1 DO
+                                                IF Connection[id_nr].Conn.id=Connection[k].Conn.id THEN
+                                                    sSTATUS:=W#16#A07B;
+                                                    EXIT;
+                                                END_IF;   
+                                            END_FOR;
+                                        END_IF;
+                                        IF sSTATUS=W#16#0 THEN (*A803*)
+                                            Connection[id_nr].Conn.local_device_id:=Local_device_id;
+                                            Used_Number_of_IDs:=Used_Number_of_IDs+1;
+                                            Connection[id_nr].Used:=TRUE;
+                                            RET_VALUE:=BLKMOV(SRCBLK := Connection[id_nr].TCP_COMM_Instance
+                                                   ,DSTBLK := TCP_COMM
+                                                   );
+                                            IF RET_VALUE<>0 THEN (*A804*)
+                                                sSTATUS:=INT_TO_WORD(RET_VALUE);
+                                                sSTATUS_FUNC:='BLKMOV';
+                                            END_IF; (*A804*)
+                                            TCP_COMM.ENQ:=FALSE;
+                                            TCP_COMM( ENQ:=TCP_COMM.ENQ
+                                            ,ANLAUF := TRUE
+                                               );
+                                            RET_VALUE:=BLKMOV(SRCBLK := TCP_COMM
+                                                   ,DSTBLK := Connection[id_nr].TCP_COMM_Instance
+                                                   );
+                                            IF RET_VALUE<>0 THEN (*A804*)
+                                                sSTATUS:=INT_TO_WORD(RET_VALUE);
+                                                sSTATUS_FUNC:='BLKMOV';
+                                            END_IF; (*A804*)
+                                        END_IF;
+                                    END_IF;
+                                ELSE       
+                                    Not_Used_Number_of_IDs:=Not_Used_Number_of_IDs+1;
+                                END_IF;   
+                                IF id_nr=Max_Number_of_IDs THEN (*A7fa*)
+                                    FOR L:=WORD_TO_INT(Connection[id_nr].Address_in_ConfigDB)+4 TO WORD_TO_INT(sCONFIG_DB_Length)-12 BY 1 DO
+                                        IF CONFIG_DB.DD[L]=DW#16#6FFFFFFD THEN (*A80a*)
+                                            More_IDs_found:=TRUE;
+                                            Next_ID_Address:=L-2;
+                                            EXIT;
+                                        END_IF;
+                                    END_FOR;
+                                END_IF;
+                                EXIT;
+                            END_IF;
+                        END_FOR;
+                        IF (i>=(WORD_TO_INT(sCONFIG_DB_Length)-12)) OR (sSTATUS<>W#16#0) THEN (*A80b*)
+                            EXIT;
+                        END_IF;   
+                    END_FOR;
+                    IF Used_Number_of_IDs=0 THEN
+                        sSTATUS:=W#16#A07A;
+                    END_IF;        
+                    IF sSTATUS=W#16#0 THEN
+                        FOR id_nr:=1  TO Used_Number_of_IDs+Not_Used_Number_of_IDs BY 1 DO
+                            IF id_nr<>(Used_Number_of_IDs+Not_Used_Number_of_IDs) THEN (*A810*)
+                                Connection[id_nr].Number_of_PACs:=(WORD_TO_INT(Connection[id_nr+1].Address_in_ConfigDB)-WORD_TO_INT(Connection[id_nr].Address_in_ConfigDB)-6)/8;
+                                IF ((WORD_TO_INT(Connection[id_nr+1].Address_in_ConfigDB)-WORD_TO_INT(Connection[id_nr].Address_in_ConfigDB))-6) MOD 8<>0 THEN
+                                    sSTATUS:=W#16#A07F;
+                                END_IF;
+                            ELSE       
+                                IF NOT(More_IDs_found) THEN
+                                    Next_ID_Address:=WORD_TO_INT(sCONFIG_DB_Length);
+                                END_IF;
+                                Connection[id_nr].Number_of_PACs:=(Next_ID_Address-WORD_TO_INT(Connection[id_nr].Address_in_ConfigDB)-6)/8;
+                                IF ((Next_ID_Address-WORD_TO_INT(Connection[id_nr].Address_in_ConfigDB))-6) MOD 8<>0 THEN
+                                    sSTATUS:=W#16#A07F;
+                                END_IF;
+                            END_IF;
+                            IF id_nr=1 THEN (*A815*)
+                                Connection[id_nr].Number_of_first_PAC:=1;
+                            ELSE
+                                Connection[id_nr].Number_of_first_PAC:=Connection[id_nr-1].Number_of_first_PAC+Connection[id_nr-1].Number_of_PACs;   
+                            END_IF;
+                            IF (Connection[id_nr].Conn.id<>W#16#0) AND (Used_Number_of_PACs<>Max_Number_of_PACs) THEN (*A817*)
+                                IF (Used_Number_of_PACs+Connection[id_nr].Number_of_PACs)<=Max_Number_of_PACs THEN (*A818*)
+                                Used_Number_of_PACs:=Used_Number_of_PACs+Connection[id_nr].Number_of_PACs;
+                                ELSE
+                                    Not_Used_Number_of_PACs:=(Not_Used_Number_of_PACs+Connection[id_nr].Number_of_PACs)-(Max_Number_of_PACs-Used_Number_of_PACs);
+                                    Connection[id_nr].Number_of_PACs:=Max_Number_of_PACs-Used_Number_of_PACs;
+                                    Used_Number_of_PACs:=Used_Number_of_PACs+Connection[id_nr].Number_of_PACs;
+                                    More_PACs_found:=TRUE;
+                                    STATUS:=W#16#A087;
+                                END_IF; (*A819*)
+                                IF (Used_Number_of_PACs=Max_Number_of_PACs) AND (Used_Number_of_IDs>id_nr) THEN (*A81a*)
+                                    Not_Used_Number_of_IDs:=(Not_Used_Number_of_IDs+Used_Number_of_IDs)-id_nr;
+                                    Used_Number_of_IDs:=id_nr;
+                                END_IF;
+                                FOR i:=1 TO Connection[id_nr].Number_of_PACs BY 1 DO
+                                    Connection[id_nr].PAC.Current_DB:=DWORD_TO_WORD(CONFIG_DB.DD[(WORD_TO_DINT(Connection[id_nr].Address_in_ConfigDB)+6)+((2*i-1)*4)]);
+                                    IF Connection[id_nr].PAC.Current_DB=W#16#0 THEN
+                                        sSTATUS:=W#16#A019;
+                                    ELSIF Connection[id_nr].PAC.Current_DB=sCONFIG_DB OR Connection[id_nr].PAC.Current_DB=sIDB_Nr THEN
+                                        sSTATUS:=W#16#A07E;
+                                    ELSE
+                                        TEST_DB.RET_WERT:=TEST_DB(DB_NUMBER :=Connection[id_nr].PAC.Current_DB
+                                                  ,DB_LENGTH :=TEST_DB.LENGTH
+                                                  ,WRITE_PROT :=TEST_DB.WRITE_PROTECT );
+                                        IF TEST_DB.RET_WERT<>0 THEN (*A81e*)
+                                            ERROR:=TRUE;
+                                            sSTATUS:=INT_TO_WORD(TEST_DB.RET_WERT);
+                                            sSTATUS_FUNC:='TEST_DB';
+                                        END_IF;
+                                    END_IF;       
+                                    IF CONFIG_DB.DB[(WORD_TO_INT(Connection[id_nr].Address_in_ConfigDB)+6)+((2*i-2)*4)]=B#16#0 OR
+                                       CONFIG_DB.DB[(WORD_TO_INT(Connection[id_nr].Address_in_ConfigDB)+6)+((2*i-2)*4)]=B#16#7F OR
+                                       CONFIG_DB.DB[(WORD_TO_INT(Connection[id_nr].Address_in_ConfigDB)+6)+((2*i-2)*4)]=B#16#FF
+                                    THEN
+                                        sSTATUS:=W#16#A07C;
+                                        EXIT;
+                                    END_IF;
+                                END_FOR;
+                            ELSE
+                                Not_Used_Number_of_PACs:=Not_Used_Number_of_PACs+Connection[id_nr].Number_of_PACs;
+                                Connection[id_nr].Used:=false;
+                            END_IF;   
+                        END_FOR;
+                    END_IF;
+                END_IF;   
+            END_IF;
+        END_IF;   
+        //-------------------
+        IF Connection_type=B#16#1 THEN
+            FOR i:=1 TO Max_Number_of_IDs BY 1 DO
+                Connection[i].Conn.connection_type:=Connection_type;
+                Connection[i].Conn.rem_tsap_id[1]:=B#16#F6;
+                Connection[i].Conn.rem_tsap_id[2]:=B#16#1;
+            END_FOR;
+        END_IF;
+        IF sSTATUS<>W#16#0 THEN
+            ERROR:=true;
+            STATUS:=sSTATUS;
+        END_IF;
+        sANLAUF_FEHLER:=ERROR;
+        sSTATUS_TEMP:=sSTATUS;
+        sSTATUS_TIMER:=sSTATUS_TIMER OR W#16#20;
+    END_IF;
+END_IF;
+sINIT:=INIT;
+IF NOT(sANLAUF_FEHLER) THEN (*A827*)
+    TEST_DB.RET_WERT:=TEST_DB(DB_NUMBER :=Block_DB_TO_WORD(CONFIG_DB)
+              ,DB_LENGTH :=TEST_DB.LENGTH
+              ,WRITE_PROT :=TEST_DB.WRITE_PROTECT );
+    IF TEST_DB.RET_WERT<>0 THEN (*A81e*)
+        ERROR:=TRUE;
+        STATUS:=INT_TO_WORD(TEST_DB.RET_WERT);
+        sSTATUS_FUNC:='TEST_DB';
+    ELSE
+        IF (Block_DB_TO_WORD(CONFIG_DB)<>sCONFIG_DB) OR (TEST_DB.LENGTH<>sCONFIG_DB_Length) THEN (*A827*)
+            ERROR:=TRUE;
+            STATUS:=W#16#A080;
+            sANLAUF_FEHLER:=true;
+            Cycle_running:=false;
+            Cycle_start:=false;
+        END_IF;
+    END_IF;
+END_IF;
+IF (NOT(ERROR)) AND (NOT(CPU_Data_Read)) THEN (*A82b*)
+    TON_CYCLICAL(IN :=TRUE 
+       ,PT := CYCLICAL
+      );
+    IF (CYCLICAL>T#0MS) AND TON_CYCLICAL.Q THEN (*A82c*)
+        TON_CYCLICAL(IN :=FALSE 
+           ,PT := CYCLICAL
+          );
+        TEST_DB.RET_WERT:=TEST_DB(DB_NUMBER :=Block_DB_TO_WORD(CONFIG_DB)
+                  ,DB_LENGTH :=TEST_DB.LENGTH
+                  ,WRITE_PROT :=TEST_DB.WRITE_PROTECT );
+        IF TEST_DB.RET_WERT<>0 THEN (*A81e*)
+            sSTATUS:=INT_TO_WORD(TEST_DB.RET_WERT);
+            sSTATUS_FUNC:='TEST_DB';
+        ELSIF (TEST_DB.LENGTH<>sCONFIG_DB_Length) THEN (*A827*)
+            Cycle_running:=false;
+            Cycle_start:=false;
+            ERROR:=TRUE;
+            STATUS:=W#16#A080;
+            sANLAUF_FEHLER:=true;
+        ELSE
+            Cycle_start:=true;
+        END_IF;
+        IF (NOT(ERROR)) AND Cycle_running THEN (*A82c*)
+            STATUS:=W#16#A089;
+        END_IF;
+    END_IF;
+    IF ((NOT(Cycle_running)) AND Cycle_start) AND (NOT(ERROR)) THEN (*A831*)
+        IF MONITOR<T#20MS THEN (*A832*)
+            STATUS:=W#16#A007;
+            ERROR:=TRUE;
+            Cycle_start:=FALSE;
+        ELSE (*A832*)
+            sMONITOR:=MONITOR;
+            Cycle_running:=Cycle_start;
+            Cycle_start:=FALSE;
+            Connection[id_nr].Enable_Found:=false;
+            Number_of_finished_IDs:=0;
+            IF CONN_CNT=0 THEN (*A834*)
+                sCONN_CNT:=0;
+                sCONN_WAIT:=T#0MS;
+            ELSIF CONN_CNT>Max_Number_of_IDs THEN (*A836*)
+                sCONN_CNT:=Max_Number_of_IDs;
+                sCONN_WAIT:=CONN_WAIT;
+            ELSE (*A836*)
+                sCONN_CNT:=CONN_CNT;
+                sCONN_WAIT:=CONN_WAIT;
+            END_IF;       
+            FOR id_nr:=1 TO Max_Number_of_IDs BY 1 DO
+                Connection[id_nr].PAC.Curr_PAC_Number:=1;
+            END_FOR;
+            device_tsap_st.t:=DINT_TO_INT(TIME_TO_DINT(MONITOR));
+            device_tsap_st.w:=sCONFIG_DB_Length;   
+        END_IF;   
+    END_IF;   
+    IF NOT ERROR AND Cycle_running THEN
+        FOR id_nr:=1 TO Max_Number_of_IDs BY 1 DO
+            IF (First_STATUS=W#16#0) AND (sSTATUS<>W#16#0) THEN (*A83c*)
+                First_STATUS:=sSTATUS;
+            END_IF; (*A83c*)
+            sSTATUS:=W#16#0;
+            IF (((WORD_TO_DINT(Connection[id_nr].Conn.id))<>0) AND
+            (NOT(Connection[id_nr].Finished))) AND Connection[id_nr].Used
+            THEN (*A83d*)
+                FOR TCP_COMM_Durchlaeufe:=1 TO 3 BY 1 DO
+                   
+                    IF (NOT(Connection[id_nr].Conn_established)) AND Conn_cnt_full THEN (*A840*)
+                        Next_ID:=TRUE;
+                        EXIT;
+                    END_IF;   
+                    IF NOT Connection[id_nr].PAC.T_Blocks_running THEN
+                        Connection[id_nr].T_CONN[1]:=W#16#1002;
+                        Connection[id_nr].T_CONN[2]:=W#16#40;
+                        Connection[id_nr].T_CONN[3]:=sIDB_Nr;
+                        SRCBLK_Struct_any:=Connection[id_nr].Conn.block_length;
+                        Connection[id_nr].sConn:=DWORD_TO_DINT(SHR(IN:=(DW#16#FFFFFF AND SRCBLK_Struct.Byte_Pointer),N:=3));
+                        BytePointer:=((SHL(IN:=DINT_TO_DWORD(Connection[id_nr].sConn),N:=3)) AND DW#16#FFFFFF) OR DW#16#84000000;
+                        Connection[id_nr].T_CONN[4]:=BytePointer_w[0];
+                        Connection[id_nr].T_CONN[5]:=BytePointer_w[1];
+                        FOR i:=1 TO Connection[id_nr].Number_of_PACs BY 1 DO
+                            IF NOT Connection[id_nr].PAC.Current_PAC_running THEN
+                                IF Connection[id_nr].Number_of_PACs=1 AND Connection[id_nr].Conn_established THEN
+                                    Device:=Device+1;
+                                END_IF;
+                                Connection[id_nr].PAC.Current_DB:=
+                                DWORD_TO_WORD(CONFIG_DB.DD[WORD_TO_INT(Connection[id_nr].Address_in_ConfigDB)+6+(4*Connection[id_nr].PAC.Curr_PAC_Number)+(Connection[id_nr].PAC.Curr_PAC_Number-1)*4]);   
+                                TEST_DB.RET_WERT:=TEST_DB(DB_NUMBER :=Connection[id_nr].PAC.Current_DB
+                                          ,DB_LENGTH :=Connection[id_nr].PAC.Current_DB_Length
+                                          ,WRITE_PROT :=TEST_DB.WRITE_PROTECT );
+                                IF TEST_DB.RET_WERT=0 THEN
+                                    Connection[id_nr].PAC.Data_Area_finished:=0;
+                                    Connection[id_nr].PAC.Current_Data_Area:=1;
+                                    EXIT;
+                                ELSE
+                                    Connection[id_nr].Error:=true;
+                                    sSTATUS:=INT_TO_WORD(TEST_DB.RET_WERT);
+                                    sSTATUS_FUNC:='TEST_DB';
+                                    WORD_TO_BLOCK_DB(sCONFIG_DB).DX[INT_TO_DINT(((Connection[id_nr].Number_of_first_PAC+Connection[id_nr].PAC.Curr_PAC_Number)-1)/8),
+                                    INT_TO_DINT(((Connection[id_nr].Number_of_first_PAC+Connection[id_nr].PAC.Curr_PAC_Number)-1) MOD 8 -1 )]:=true;
+                                    IF Connection[id_nr].PAC.Curr_PAC_Number=Connection[id_nr].Number_of_PACs THEN
+                                        Connection[id_nr].Finished:=true;
+                                        EXIT;
+                                    ELSE
+                                        Connection[id_nr].PAC.Curr_PAC_Number:=Connection[id_nr].PAC.Curr_PAC_Number+1;
+                                    END_IF;
+                                END_IF;
+                                Connection[id_nr].PAC.Current_Data_Area:=1;
+                            END_IF;   
+                        END_FOR;
+                    END_IF;
+                    IF Connection[id_nr].Finished THEN
+                        EXIT;
+                    END_IF;   
+                    IF (NOT(Connection[id_nr].PAC.T_Blocks_running)) AND (NOT(Connection[id_nr].STATE.DISCON)) THEN (*A84b*)
+                        FOR i:=Connection[id_nr].PAC.Current_Data_Area TO 8 BY 1 DO
+                            Connection[id_nr].sFUNC_CODE:=B#16#0;
+                            IF Data_Blocks.Enable[Connection[id_nr].PAC.Current_Data_Area] THEN
+                                Connection[id_nr].Enable_Found:=true;
+                                WORD_TO_BLOCK_DB(Connection[id_nr].PAC.Current_DB).DX2.0:=false;
+                                IF Connection[id_nr].PAC.Current_Data_Area<=4 THEN
+                                    IF WORD_TO_BLOCK_DB(Connection[id_nr].PAC.Current_DB).DX[0,Connection[id_nr].PAC.Current_Data_Area-1] THEN
+                                        Connection[id_nr].sWRITE_READ:=true;
+                                        Connection[id_nr].sFUNC_CODE:=B#16#10;
+                                        EXIT;
+                                    ELSE
+                                        Connection[id_nr].PAC.Data_Area_finished:=Connection[id_nr].PAC.Data_Area_finished+1;
+                                    END_IF;
+                                ELSE
+                                    Connection[id_nr].sWRITE_READ:=false;
+                                    Connection[id_nr].sFUNC_CODE:=B#16#3;
+                                    EXIT;
+                                END_IF;
+                            ELSE
+                                Connection[id_nr].PAC.Data_Area_finished:=Connection[id_nr].PAC.Data_Area_finished+1;
+                                IF Connection[id_nr].PAC.Current_Data_Area=8 THEN
+                                    Last_Data_Area:=Connection[id_nr].Enable_Found;
+                                    IF NOT Connection[id_nr].Enable_Found THEN
+                                        sSTATUS:=W#16#A088;
+                                        Connection[id_nr].Delete_Data_Curr_PAC:=true;
+                                    END_IF;
+                                END_IF;
+                            END_IF;   
+                            IF Connection[id_nr].PAC.Current_Data_Area<8 THEN
+                                Connection[id_nr].PAC.Current_Data_Area:=Connection[id_nr].PAC.Current_Data_Area+1;
+                            END_IF;
+                        END_FOR;
+                        IF Connection[id_nr].sFUNC_CODE<>B#16#0 THEN
+                            IF Connection[id_nr].Conn_established THEN
+                                Connection[id_nr].STATE.SEND:=true;
+                                Connection[id_nr].STATE.AUFTRAG_LAEUFT:=false;
+                            ELSE
+                                IF (WORD_TO_INT(device_tsap_st.s)=0) OR (Device<WORD_TO_INT(device_tsap_st.s)) THEN
+                                    Device:=Device+1;
+                                    Connection[id_nr].STATE.CON:=true;
+                                    Connection[id_nr].STATE.AUFTRAG_LAEUFT:=false;
+                                ELSE
+                                    Connection[id_nr].Delete_Data_Curr_PAC:=true;
+                                    EXIT;
+                                END_IF;   
+                            END_IF;
+                            Connection[id_nr].PAC.Current_PAC_running:=true;
+                            Connection[id_nr].PAC.T_Blocks_running:=true;
+                        END_IF;
+                    END_IF;   
+                    IF NOT Last_Data_Area AND
+                       NOT Connection[id_nr].STATE.SEND AND
+                       NOT Connection[id_nr].STATE.RECV1 AND
+                       NOT Connection[id_nr].STATE.RECV2 AND
+                       NOT Connection[id_nr].STATE.CON AND
+                       NOT Connection[id_nr].STATE.DISCON
+                    THEN
+                        EXIT;
+                    END_IF;   
+                   
+                   
+                    IF Connection[id_nr].STATE.RECV1 THEN
+                        IF NOT Connection[id_nr].STATE.AUFTRAG_LAEUFT THEN
+                            Connection[id_nr].T_DATA[1]:=w#16#1002;
+                            Connection[id_nr].T_DATA[2]:=w#16#6;
+                            Connection[id_nr].T_DATA[3]:=sIDB_Nr;
+                            BytePointer:=SHL(IN:=DINT_TO_DWORD(sRECV_BUFFER),N:=3) AND DW#16#FFFFFF OR DW#16#84000000;
+                            Connection[id_nr].T_DATA[4]:=BytePointer_w[0];
+                            Connection[id_nr].T_DATA[5]:=BytePointer_w[1];
+                            Connection[id_nr].DATA_TRANSFER:=true;
+                            Connection[id_nr].SEND_RCV:=false;
+                            Connection[id_nr].TCP_COMM_Length:=6;
+                            Connection[id_nr].MONITOR:=sMONITOR;
+                            Connection[id_nr].ENQ:=true;
+                            Connection[id_nr].STATE.AUFTRAG_LAEUFT:=true;
+                        END_IF;   
+                    ELSIF Connection[id_nr].STATE.RECV2 THEN
+                        IF NOT Connection[id_nr].STATE.AUFTRAG_LAEUFT THEN
+                            Connection[id_nr].DATA_TRANSFER:=true;
+                            Connection[id_nr].SEND_RCV:=false;
+                            Connection[id_nr].TCP_COMM_Length:=Connection[id_nr].sLEN_RECV2;
+                            Connection[id_nr].MONITOR:=sMONITOR;
+                            BytePointer:=SHL(IN:=DINT_TO_DWORD(sRECV_BUFFER+6),N:=3) AND DW#16#FFFFFF OR DW#16#84000000;
+                            Connection[id_nr].T_DATA[4]:=BytePointer_w[0];
+                            Connection[id_nr].T_DATA[5]:=BytePointer_w[1];
+                            Connection[id_nr].ENQ:=true;
+                            Connection[id_nr].STATE.AUFTRAG_LAEUFT:=true;
+                        END_IF;
+                    ELSIF Connection[id_nr].STATE.SEND THEN
+                        IF NOT Connection[id_nr].STATE.AUFTRAG_LAEUFT THEN
+                            Connection[id_nr].T_DATA[1]:=w#16#1002;
+                            Connection[id_nr].T_DATA[2]:=w#16#104;
+                            Connection[id_nr].T_DATA[3]:=sIDB_Nr;
+                            BytePointer:=SHL(IN:=DINT_TO_DWORD(sSEND_BUFFER),N:=3) AND DW#16#FFFFFF OR DW#16#84000000;
+                            Connection[id_nr].T_DATA[4]:=BytePointer_w[0];
+                            Connection[id_nr].T_DATA[5]:=BytePointer_w[1];
+                            Connection[id_nr].DATA_TRANSFER:=true;
+                            Connection[id_nr].SEND_RCV:=true;
+                            Connection[id_nr].MONITOR:=T#0ms;
+                            Connection[id_nr].ENQ:=true;
+                            Connection[id_nr].STATE.AUFTRAG_LAEUFT:=true;
+                            SendBuffer_w[2]:=W#16#0;
+                            SendBuffer[7]:=B#16#1;
+                            sTI:=sTI+1;
+                            Connection[id_nr].Current_TI:=sTI;
+                            SendBuffer_w[1]:=INT_TO_WORD(sTi);
+                            IF Connection[id_nr].sWRITE_READ THEN
+                                SendBuffer[8]:=B#16#10;
+                                SendBuffer_w[6]:=Data_Blocks_w.a[Connection[id_nr].PAC.Current_Data_Area];
+                                SendBuffer[13]:=INT_TO_BYTE(WORD_TO_INT(Data_Blocks_w.a[Connection[id_nr].PAC.Current_Data_Area])*2);
+                                SendBuffer_w[3]:=INT_TO_WORD(BYTE_TO_INT(SendBuffer[13])+7);
+                                Connection[id_nr].TCP_COMM_Length:=WORD_TO_INT(SendBuffer_w[3])+6;
+                                SendBuffer_w[5]:=Data_Blocks_w.b[Connection[id_nr].PAC.Current_Data_Area];
+                                SendBuffer[14]:=B#16#0;
+                            ELSE
+                                SendBuffer_w[3]:=W#16#6;
+                                SendBuffer[8]:=B#16#3;
+                                Connection[id_nr].TCP_COMM_Length:=12;
+                                SendBuffer_w[5]:=Data_Blocks_w.b[Connection[id_nr].PAC.Current_Data_Area];
+                                SendBuffer_w[6]:=Data_Blocks_w.a[Connection[id_nr].PAC.Current_Data_Area];
+                            END_IF;
+                        END_IF;
+                    ELSIF Connection[id_nr].STATE.CON THEN
+                        IF NOT Connection[id_nr].STATE.AUFTRAG_LAEUFT THEN
+                            IF NOT Connection[id_nr].Conn_established THEN
+                                IF sCONN_CNT<>0 THEN
+                                    start_CONS:=start_CONS+1;
+                                    IF start_CONS=sCONN_CNT THEN
+                                        Conn_cnt_full:=true;
+                                        IF sCONN_WAIT > T#0ms THEN
+                                            TON_CONN_CNT(IN :=TRUE 
+                                               ,PT := sCONN_WAIT
+                                              );
+                                            TON_CONN_CNT_running:=true;
+                                        END_IF;
+                                    END_IF;
+                                END_IF;
+                                IF Connection_type<>B#16#1 THEN
+                                    Connection[id_nr].Conn.rem_staddr[1]:=CONFIG_DB.DB[(WORD_TO_DINT(Connection[id_nr].Address_in_ConfigDB)+6)+(Connection[id_nr].PAC.Curr_PAC_Number-1)*8];
+                                    Connection[id_nr].Conn.rem_staddr[2]:=CONFIG_DB.DB[(WORD_TO_DINT(Connection[id_nr].Address_in_ConfigDB)+7)+(Connection[id_nr].PAC.Curr_PAC_Number-1)*8];
+                                    Connection[id_nr].Conn.rem_staddr[3]:=CONFIG_DB.DB[(WORD_TO_DINT(Connection[id_nr].Address_in_ConfigDB)+8)+(Connection[id_nr].PAC.Curr_PAC_Number-1)*8];
+                                    Connection[id_nr].Conn.rem_staddr[4]:=CONFIG_DB.DB[(WORD_TO_DINT(Connection[id_nr].Address_in_ConfigDB)+9)+(Connection[id_nr].PAC.Curr_PAC_Number-1)*8];
+                                ELSE
+                                    Connection[id_nr].Conn.rem_staddr[4]:=CONFIG_DB.DB[(WORD_TO_DINT(Connection[id_nr].Address_in_ConfigDB)+6)+(Connection[id_nr].PAC.Curr_PAC_Number-1)*8];
+                                    Connection[id_nr].Conn.rem_staddr[3]:=CONFIG_DB.DB[(WORD_TO_DINT(Connection[id_nr].Address_in_ConfigDB)+7)+(Connection[id_nr].PAC.Curr_PAC_Number-1)*8];
+                                    Connection[id_nr].Conn.rem_staddr[2]:=CONFIG_DB.DB[(WORD_TO_DINT(Connection[id_nr].Address_in_ConfigDB)+8)+(Connection[id_nr].PAC.Curr_PAC_Number-1)*8];
+                                    Connection[id_nr].Conn.rem_staddr[1]:=CONFIG_DB.DB[(WORD_TO_DINT(Connection[id_nr].Address_in_ConfigDB)+9)+(Connection[id_nr].PAC.Curr_PAC_Number-1)*8];
+                                END_IF;
+                                Connection[id_nr].ENQ:=true;
+                                Connection[id_nr].DATA_TRANSFER:=false;
+                                Connection[id_nr].MONITOR:=sMONITOR;
+                                Connection[id_nr].CONNECT_DISCONNECT:=true;
+                                Connection[id_nr].STATE.AUFTRAG_LAEUFT:=true;
+                            ELSE
+                                Connection[id_nr].STATE.CON:=false;
+                                Connection[id_nr].STATE.SEND:=true;
+                            END_IF;
+                        END_IF;
+                       
+                    ELSIF Connection[id_nr].STATE.DISCON AND Connection[id_nr].Conn_established THEN
+                        IF NOT Connection[id_nr].STATE.AUFTRAG_LAEUFT THEN
+                            Connection[id_nr].STATE.CON:=false;
+                            Connection[id_nr].STATE.SEND:=false;
+                            Connection[id_nr].STATE.RECV1:=false;
+                            Connection[id_nr].STATE.RECV2:=false;
+                            Connection[id_nr].STATE.AUFTRAG_LAEUFT:=true;
+                            Connection[id_nr].DATA_TRANSFER:=false;
+                            Connection[id_nr].CONNECT_DISCONNECT:=false;
+                            Connection[id_nr].MONITOR:=sMONITOR;
+                            Connection[id_nr].ENQ:=true;
+                        END_IF;
+                    END_IF;   
+                    RET_VALUE:=BLKMOV(SRCBLK := Connection[id_nr].T_CONN
+                           ,DSTBLK :=  TCON_Struct
+                           );
+                    IF RET_VALUE<>0 THEN
+                        sSTATUS:=INT_TO_WORD(RET_VALUE);
+                        sSTATUS_FUNC:='BLKMOV';
+                        Current_PAC_Error:=true;
+                        EXIT;
+                    END_IF;
+                    RET_VALUE:=BLKMOV(SRCBLK := Connection[id_nr].T_DATA
+                           ,DSTBLK :=  TDATA_Struct
+                           );
+                    IF RET_VALUE<>0 THEN
+                        sSTATUS:=INT_TO_WORD(RET_VALUE);
+                        sSTATUS_FUNC:='BLKMOV';
+                        Current_PAC_Error:=true;
+                        EXIT;
+                    END_IF;
+                    RET_VALUE:=BLKMOV(SRCBLK := Connection[id_nr].TCP_COMM_Instance
+                           ,DSTBLK :=  TCP_COMM
+                           );
+                    IF RET_VALUE<>0 THEN
+                        sSTATUS:=INT_TO_WORD(RET_VALUE);
+                        sSTATUS_FUNC:='BLKMOV';
+                        Current_PAC_Error:=true;
+                        EXIT;
+                    END_IF;
+                   
+                    TCP_COMM(ID := Connection[id_nr].Conn.id
+                       ,DATA_TRANSFER := Connection[id_nr].DATA_TRANSFER
+                       ,LENGTH := Connection[id_nr].TCP_COMM_Length
+                       ,SEND_RCV := Connection[id_nr].SEND_RCV
+                       ,CONNECT_DISCONNECT := Connection[id_nr].CONNECT_DISCONNECT
+                       ,MONITOR := Connection[id_nr].MONITOR
+                       ,LOGGING_LEVEL := LOGGING_LEVEL
+                       ,MESSAGE_COUNT := MESSAGE_COUNT
+                       ,WAIT_TIME := WAIT_TIME
+                       ,CONN_DB := WORD_TO_BLOCK_DB(wCONN_DB)
+                       ,ENQ :=  Connection[id_nr].ENQ
+                       ,UDT_CONN :=  TCON_Struct_any
+                       ,DATA :=  TDATA_Struct_any
+                       );
+                    sTCP_COMM.CONN_ESTABLISHED:= TCP_COMM.CONN_ESTABLISHED;
+                    sTCP_COMM.BUSY:= TCP_COMM.BUSY;
+                    sTCP_COMM.DONE:= TCP_COMM.DONE;
+                    sTCP_COMM.ERROR:= TCP_COMM.ERROR;
+                    sTCP_COMM.STATUS:= TCP_COMM.STATUS;
+                    sTCP_COMM.STATUS_FUNC:= TCP_COMM.STATUS_FUNC;
+                    Connection[id_nr].Conn_established:=sTCP_COMM.CONN_ESTABLISHED;
+                    IF Connection[id_nr].sFUNC_CODE<>B#16#0 AND NOT (sTCP_COMM.BUSY OR sTCP_COMM.DONE OR sTCP_COMM.ERROR) THEN
+                        Cycle_running:=false;
+                        Cycle_start:=false;
+                        sANLAUF_FEHLER:=true;
+                        ERROR:=true;
+                        STATUS:=W#16#A080;
+                    END_IF;
+                    RET_VALUE:=BLKMOV(SRCBLK := TCP_COMM
+                           ,DSTBLK :=   Connection[id_nr].TCP_COMM_Instance
+                           );
+                    IF RET_VALUE<>0 THEN
+                        sSTATUS:=INT_TO_WORD(RET_VALUE);
+                        sSTATUS_FUNC:='BLKMOV';
+                        Current_PAC_Error:=true;
+                        EXIT;
+                    END_IF;
+                    IF Connection[id_nr].STATE.RECV1 THEN
+                        IF sTCP_COMM.DONE THEN
+                            Connection[id_nr].STATE.RECV1:=false;
+                            Connection[id_nr].STATE.AUFTRAG_LAEUFT:=false;
+                            Connection[id_nr].sLEN_RECV2:=WORD_TO_INT(RecvBuffer_w[3]);
+                            IF RecvBuffer_w[1]<>INT_TO_WORD(Connection[id_nr].Current_TI) THEN
+                                sSTATUS:=W#16#A009;
+                                Current_PAC_Error:=true;
+                            ELSIF RecvBuffer_w[2]<>W#16#0 THEN
+                                sSTATUS:=W#16#A00F;
+                                Current_PAC_Error:=true;
+                            ELSIF Connection[id_nr].sLEN_RECV2<3 OR Connection[id_nr].sLEN_RECV2>253 THEN
+                                sSTATUS:=W#16#A01A;
+                                Current_PAC_Error:=true;
+                            ELSE
+                                Connection[id_nr].T_DATA[2]:=INT_TO_WORD(Connection[id_nr].sLEN_RECV2);   
+                                Connection[id_nr].ENQ:=true;
+                                Connection[id_nr].TCP_COMM_Length:=Connection[id_nr].sLEN_RECV2;   
+                                Connection[id_nr].STATE.RECV2:=true;
+                            END_IF;   
+                        ELSIF sTCP_COMM.ERROR THEN
+                             Connection[id_nr].STATE.AUFTRAG_LAEUFT:=false;
+                             Connection[id_nr].STATE.RECV1:=false;
+                             Connection[id_nr].Error:=true;
+                             sSTATUS:=sTCP_COMM.STATUS;
+                             sSTATUS_FUNC:=sTCP_COMM.STATUS_FUNC;
+                        ELSE        
+                            EXIT;
+                        END_IF;       
+                        IF sSTATUS<>W#16#0 THEN
+                            WORD_TO_BLOCK_DB(Connection[id_nr].PAC.Current_DB).DD4:=DINT_TO_DWORD(DWORD_TO_DINT(WORD_TO_BLOCK_DB(Connection[id_nr].PAC.Current_DB).DD4)+1);
+                            WORD_TO_BLOCK_DB(Connection[id_nr].PAC.Current_DB).DW8:=sSTATUS;
+                            Current_PAC_Error:=true;
+                            EXIT;
+                        END_IF;   
+                    ELSIF Connection[id_nr].STATE.RECV2 OR Last_Data_Area THEN
+                        IF NOT Last_Data_Area AND sTCP_COMM.DONE THEN
+                            IF Connection[id_nr].sWRITE_READ THEN
+                                sExc_BytCnt_StaAdr:=WORD_TO_DINT(RecvBuffer_w[5]);
+                            ELSE
+                                sExc_BytCnt_StaAdr:=BYTE_TO_DINT(RecvBuffer[9]);
+                            END_IF;
+                            IF RecvBuffer[7]<>1 THEN
+                                sSTATUS:=W#16#A00A;
+                                Current_PAC_Error:=true;
+                            ELSIF RecvBuffer[8]<>Connection[id_nr].sFUNC_CODE THEN
+                                IF (Connection[id_nr].sFUNC_CODE)=(BYTE_TO_WORD(RecvBuffer[8]) AND W#16#7F)THEN
+                                    IF Connection[id_nr].sLEN_RECV2<>3  THEN
+                                        sSTATUS:=W#16#A00E;
+                                    ELSIF sExc_BytCnt_StaAdr=1 THEN
+                                        sSTATUS:=W#16#A091;
+                                    ELSIF sExc_BytCnt_StaAdr=2 THEN
+                                        sSTATUS:=W#16#A092;
+                                    ELSIF sExc_BytCnt_StaAdr=3 THEN
+                                        sSTATUS:=W#16#A093;
+                                    ELSIF sExc_BytCnt_StaAdr=4 THEN
+                                        sSTATUS:=W#16#A094;
+                                    ELSE
+                                        sSTATUS:=W#16#A095;
+                                    END_IF;
+                                ELSE
+                                    sSTATUS:=W#16#A00B;
+                                END_IF;
+                                Current_PAC_Error:=true;
+                            ELSE   
+                                IF Connection[id_nr].sWRITE_READ THEN
+                                    IF Connection[id_nr].sLEN_RECV2<>6 THEN
+                                        sSTATUS:=W#16#A00E;
+                                        Current_PAC_Error:=true;
+                                    ELSIF WORD_TO_DINT(Data_Blocks.Start_Address[Connection[id_nr].PAC.Current_Data_Area])<>sExc_BytCnt_StaAdr THEN
+                                        sSTATUS:=W#16#A00D;
+                                        Current_PAC_Error:=true;
+                                    ELSIF Data_Blocks.Length[Connection[id_nr].PAC.Current_Data_Area]<>RecvBuffer_w[6] THEN  
+                                        sSTATUS:=W#16#A00C;
+                                        Current_PAC_Error:=true;
+                                    ELSE
+                                        WORD_TO_BLOCK_DB(Connection[id_nr].PAC.Current_DB).DX[0,Connection[id_nr].PAC.Current_Data_Area-1]:=false;
+                                        Connection[id_nr].STATE.RECV2:=false;
+                                        Connection[id_nr].STATE.AUFTRAG_LAEUFT:=false;
+                                    END_IF;   
+                                ELSE
+                                    IF WORD_TO_INT(Data_Blocks.Length[Connection[id_nr].PAC.Current_Data_Area])*2<>sExc_BytCnt_StaAdr THEN
+                                        sSTATUS:=W#16#A00C;
+                                        Current_PAC_Error:=true;
+                                    ELSIF (WORD_TO_INT(Data_Blocks.Length[Connection[id_nr].PAC.Current_Data_Area])*2+3)<>Connection[id_nr].sLEN_RECV2 THEN
+                                        sSTATUS:=W#16#A00E;
+                                        Current_PAC_Error:=true;
+                                    ELSIF (Connection[id_nr].sLEN_RECV2-3)+WORD_TO_DINT(Data_Blocks.Address_in_DB[Connection[id_nr].PAC.Current_Data_Area])>WORD_TO_DINT(Connection[id_nr].PAC.Current_DB_Length) THEN
+                                        sSTATUS:=W#16#A003;
+                                        Current_PAC_Error:=true;
+                                    ELSE   
+                                        SRCBLK_Struct.ANY_id:=W#16#1002;
+                                        SRCBLK_Struct.Length:=INT_TO_WORD(WORD_TO_INT(Data_Blocks.Length[Connection[id_nr].PAC.Current_Data_Area])*2);
+                                        SRCBLK_Struct.DB_Number:=sIDB_Nr;
+                                        SRCBLK_Struct.Byte_Pointer:=SHL(IN:=DINT_TO_DWORD(9+sRECV_BUFFER),N:=3) AND DW#16#FFFFFF OR DW#16#84000000;
+                                        DSTBLK_Struct.Length:=SRCBLK_Struct.Length;
+                                        DSTBLK_Struct.DB_Number:=(Connection[id_nr].PAC.Current_DB);
+                                        DSTBLK_Struct.Byte_Pointer:=SHL(IN:=Data_Blocks.Address_in_DB[Connection[id_nr].PAC.Current_Data_Area],N:=3) AND DW#16#FFFFFF OR DW#16#84000000;
+                                        RET_VALUE:=BLKMOV(SRCBLK := SRCBLK_Struct_any
+                                               ,DSTBLK :=  DSTBLK_Struct_any
+                                               );
+                                        IF RET_VALUE<>0 THEN
+                                            sSTATUS:=INT_TO_WORD(RET_VALUE);
+                                            sSTATUS_FUNC:='BLKMOV';
+                                            Connection[id_nr].Error:=true;
+                                            Current_PAC_Error:=true;
+                                        ELSE
+                                            Connection[id_nr].STATE.RECV2:=false;
+                                            Connection[id_nr].STATE.AUFTRAG_LAEUFT:=false;
+                                        END_IF;
+                                    END_IF;   
+                                END_IF;   
+                                Connection[id_nr].PAC.T_Blocks_running:=false;
+                                Connection[id_nr].PAC.Data_Area_finished:=Connection[id_nr].PAC.Data_Area_finished+1;
+                            END_IF;       
+                        ELSIF sTCP_COMM.ERROR THEN
+                            Connection[id_nr].STATE.AUFTRAG_LAEUFT:=false;
+                            Connection[id_nr].STATE.RECV2:=false;
+                            Connection[id_nr].Error:=true;
+                            sSTATUS:=sTCP_COMM.STATUS;
+                            sSTATUS_FUNC:=sTCP_COMM.STATUS_FUNC;
+                        ELSIF NOT ((Connection[id_nr].PAC.Current_Data_Area=8) AND NOT Data_Blocks.Enable[Connection[id_nr].PAC.Current_Data_Area]) THEN
+                            EXIT;
+                        END_IF;
+                       
+                        
+                        IF sSTATUS<>W#16#0 THEN
+                            WORD_TO_BLOCK_DB(Connection[id_nr].PAC.Current_DB).DD4:=DINT_TO_DWORD(DWORD_TO_DINT(WORD_TO_BLOCK_DB(Connection[id_nr].PAC.Current_DB).DD4)+1);
+                            WORD_TO_BLOCK_DB(Connection[id_nr].PAC.Current_DB).DW8:=sSTATUS;
+                            Current_PAC_Error:=true;
+                            EXIT;
+                        END_IF;
+                        Last_Data_Area:=false;
+                        IF Connection[id_nr].PAC.Data_Area_finished>=8 OR Current_PAC_Error THEN
+                            IF Connection[id_nr].Enable_Found AND NOT Current_PAC_Error   THEN
+                                WORD_TO_BLOCK_DB(Connection[id_nr].PAC.Current_DB).DX2.0:=true;
+                                RET_VALUE:=READ_CLK(CDT :=  sTimestamp);
+                                IF RET_VALUE=0 THEN
+                                    WORD_TO_BLOCK_DB(sCONFIG_DB).DX[(((Connection[id_nr].Number_of_first_PAC+Connection[id_nr].PAC.Curr_PAC_Number)-1)/8),
+                                                                   ((((Connection[id_nr].Number_of_first_PAC+Connection[id_nr].PAC.Curr_PAC_Number)-1) MOD 8) -1)]:=false;
+                                    WORD_TO_BLOCK_DB(Connection[id_nr].PAC.Current_DB).DD10:=sTimestamp_st.a;
+                                    WORD_TO_BLOCK_DB(Connection[id_nr].PAC.Current_DB).DD14:=sTimestamp_st.b;
+                                ELSE
+                                    sSTATUS:=INT_TO_WORD(RET_VALUE);
+                                    Current_PAC_Error:=true;
+                                    EXIT;
+                                END_IF;
+                            END_IF;   
+                            IF Connection[id_nr].Number_of_PACs<>1 THEN
+                                Connection[id_nr].STATE.RECV2:=false;
+                                Connection[id_nr].STATE.DISCON:=true;
+                                Connection[id_nr].PAC.T_Blocks_running:=true;
+                                Connection[id_nr].STATE.AUFTRAG_LAEUFT:=false;
+                            ELSE
+                                Connection[id_nr].Done:=Connection[id_nr].Done OR sTCP_COMM.DONE;
+                                Connection[id_nr].ERROR:=Connection[id_nr].ERROR OR sTCP_COMM.ERROR;
+                            END_IF;
+                            IF Connection[id_nr].PAC.Curr_PAC_Number=Connection[id_nr].Number_of_PACs AND NOT Connection[id_nr].STATE.DISCON THEN
+                                Connection[id_nr].Finished:=true;
+                                EXIT;
+                            ELSE
+                                IF NOT Connection[id_nr].STATE.DISCON THEN
+                                    Connection[id_nr].PAC.Curr_PAC_Number:=Connection[id_nr].PAC.Curr_PAC_Number+1;
+                                END_IF;
+                            END_IF;
+                        ELSE
+                            Connection[id_nr].PAC.Current_Data_Area:=Connection[id_nr].PAC.Current_Data_Area+1;
+                        END_IF;
+                    ELSIF Connection[id_nr].STATE.SEND THEN
+                        IF sTCP_COMM.DONE THEN
+                            Connection[id_nr].STATE.SEND:=false;
+                            Connection[id_nr].STATE.RECV1:=true;
+                            Connection[id_nr].STATE.AUFTRAG_LAEUFT:=false;
+                        ELSIF sTCP_COMM.ERROR THEN
+                            Connection[id_nr].STATE.AUFTRAG_LAEUFT:=false;
+                            Connection[id_nr].STATE.SEND:=false;
+                            Connection[id_nr].Error:=true;
+                            sSTATUS:=sTCP_COMM.STATUS;
+                            sSTATUS_FUNC:=sTCP_COMM.STATUS_FUNC;
+                        ELSE
+                            EXIT;
+                        END_IF;
+                        IF sSTATUS<>W#16#0 THEN
+                            WORD_TO_BLOCK_DB(Connection[id_nr].PAC.Current_DB).DD4:=DINT_TO_DWORD(DWORD_TO_DINT(WORD_TO_BLOCK_DB(Connection[id_nr].PAC.Current_DB).DD4)+1);
+                            WORD_TO_BLOCK_DB(Connection[id_nr].PAC.Current_DB).DW8:=sSTATUS;
+                            Current_PAC_Error:=true;
+                            EXIT;
+                        END_IF;
+                    ELSIF Connection[id_nr].STATE.CON THEN
+                        IF sTCP_COMM.CONN_ESTABLISHED THEN
+                            Connection[id_nr].STATE.CON:=false;
+                            Connection[id_nr].STATE.SEND:=true;
+                            Connection[id_nr].STATE.AUFTRAG_LAEUFT:=false;
+                        ELSIF sTCP_COMM.ERROR THEN
+                            Connection[id_nr].Error:=true;
+                            sSTATUS:=sTCP_COMM.STATUS;
+                            sSTATUS_FUNC:=sTCP_COMM.STATUS_FUNC;
+                            WORD_TO_BLOCK_DB(Connection[id_nr].PAC.Current_DB).DD4:=DINT_TO_DWORD(DWORD_TO_DINT(WORD_TO_BLOCK_DB(Connection[id_nr].PAC.Current_DB).DD4)+1);
+                            WORD_TO_BLOCK_DB(Connection[id_nr].PAC.Current_DB).DW8:=sSTATUS;
+                            Current_PAC_Error:=true;
+                            EXIT;
+                        ELSE
+                            EXIT;
+                        END_IF;   
+                    ELSIF Connection[id_nr].STATE.DISCON THEN
+                        IF sTCP_COMM.DONE THEN
+                            Connection[id_nr].STATE.DISCON:=false;
+                            Connection[id_nr].STATE.AUFTRAG_LAEUFT:=false;
+                            Connection[id_nr].PAC.T_Blocks_running:=false;
+                            Connection[id_nr].PAC.Current_PAC_running:=false;
+                        ELSIF sTCP_COMM.ERROR THEN
+                            Connection[id_nr].ERROR:=true;
+                            Connection[id_nr].STATE.DISCON:=false;
+                            Connection[id_nr].STATE.AUFTRAG_LAEUFT:=false;
+                            Connection[id_nr].PAC.T_Blocks_running:=false;
+                            Connection[id_nr].PAC.Current_PAC_running:=false;
+                            sSTATUS:=sTCP_COMM.STATUS;
+                            sSTATUS_FUNC:=sTCP_COMM.STATUS_FUNC;
+                            WORD_TO_BLOCK_DB(Connection[id_nr].PAC.Current_DB).DD4:=DINT_TO_DWORD(DWORD_TO_DINT(WORD_TO_BLOCK_DB(Connection[id_nr].PAC.Current_DB).DD4)+1);
+                            WORD_TO_BLOCK_DB(Connection[id_nr].PAC.Current_DB).DW8:=sSTATUS;
+                        ELSE
+                            EXIT;
+                        END_IF;
+                        IF Connection[id_nr].PAC.Curr_PAC_Number=Connection[id_nr].Number_of_PACs THEN
+                            Connection[id_nr].Error:=Connection[id_nr].Error OR sTCP_COMM.ERROR;
+                            Connection[id_nr].Done:=Connection[id_nr].Done OR sTCP_COMM.DONE;
+                            Connection[id_nr].Finished:=true;
+                            Connection[id_nr].PAC.Curr_PAC_Number:=0;
+                            EXIT;
+                        ELSE
+                            Connection[id_nr].PAC.Curr_PAC_Number:=Connection[id_nr].PAC.Curr_PAC_Number+1;
+                        END_IF;
+                    ELSE
+                        Connection[id_nr].STATE.SEND:=false;
+                        Connection[id_nr].STATE.RECV1:=false;
+                        Connection[id_nr].STATE.RECV2:=false;
+                        Connection[id_nr].STATE.CON:=false;
+                        Connection[id_nr].STATE.AUFTRAG_LAEUFT:=false;
+                        Connection[id_nr].STATE.DISCON:=true;
+                        ERROR:=true;
+                        sSTATUS:=W#16#A01F;
+                        EXIT;
+                    END_IF;
+                END_FOR;
+                IF NOT Next_ID THEN
+                    IF Current_PAC_Error THEN
+                        WORD_TO_BLOCK_DB(sCONFIG_DB).DX[INT_TO_DINT(((Connection[id_nr].Number_of_first_PAC+Connection[id_nr].PAC.Curr_PAC_Number)-1)/8),
+                        INT_TO_DINT(((Connection[id_nr].Number_of_first_PAC+Connection[id_nr].PAC.Curr_PAC_Number)-1) MOD 8 -1 )]:=true;
+                        Connection[id_nr].Error:=true;
+                        Current_PAC_Error:=false;
+                        IF (WORD_TO_DINT(sSTATUS)>=40960 AND WORD_TO_DINT(sSTATUS)<41216) OR 
+                           (RET_VALUE<>0 AND Connection[id_nr].Conn_established)
+                        THEN
+                            Connection[id_nr].STATE.SEND:=false;
+                            Connection[id_nr].STATE.RECV1:=false;
+                            Connection[id_nr].STATE.RECV2:=false;
+                            Connection[id_nr].STATE.CON:=false;
+                            Connection[id_nr].STATE.DISCON:=true;
+                            Connection[id_nr].STATE.AUFTRAG_LAEUFT:=false;
+                            Connection[id_nr].Delete_Data_Curr_PAC:=false;
+                        ELSE
+                            Connection[id_nr].Delete_Data_Curr_PAC:=true;
+                        END_IF;   
+                    END_IF;
+                    IF Connection[id_nr].Delete_Data_Curr_PAC THEN
+                        Connection[id_nr].Delete_Data_Curr_PAC:=false;
+                        WORD_TO_BLOCK_DB(sCONFIG_DB).DX[INT_TO_DINT(((Connection[id_nr].Number_of_first_PAC+Connection[id_nr].PAC.Curr_PAC_Number)-1)/8),
+                        INT_TO_DINT(((Connection[id_nr].Number_of_first_PAC+Connection[id_nr].PAC.Curr_PAC_Number)-1) MOD 8 -1 )]:=true;
+                        Connection[id_nr].STATE.SEND:=false;
+                        Connection[id_nr].STATE.RECV1:=false;
+                        Connection[id_nr].STATE.RECV2:=false;
+                        Connection[id_nr].STATE.CON:=false;
+                        Connection[id_nr].STATE.DISCON:=false;
+                        Connection[id_nr].STATE.AUFTRAG_LAEUFT:=false;
+                        Connection[id_nr].PAC.Current_PAC_running:=false;
+                        Connection[id_nr].PAC.T_Blocks_running:=false;
+                        IF Connection[id_nr].PAC.Curr_PAC_Number=Connection[id_nr].Number_of_PACs OR Device = WORD_TO_INT(Device_tsap_st.s) THEN
+                            Connection[id_nr].PAC.Curr_PAC_Number:=0;
+                            Connection[id_nr].Finished:=true;
+                        ELSE   
+                            Connection[id_nr].PAC.Curr_PAC_Number:=Connection[id_nr].PAC.Curr_PAC_Number+1;
+                        END_IF;
+                    END_IF;
+                    IF Connection[id_nr].Finished THEN
+                        Number_of_finished_IDs:=Number_of_finished_IDs+1;
+                        Connection[id_nr].PAC.Current_PAC_running:=false;
+                        Connection[id_nr].PAC.Curr_PAC_Number:=0;
+                        Connection[id_nr].PAC.T_Blocks_running:=false;
+                    END_IF;
+                        Connection[id_nr].Conn_established:=sTCP_COMM.CONN_ESTABLISHED;
+                ELSE
+                    Next_ID:=false;
+                END_IF;   
+            END_IF;
+        END_FOR;
+    END_IF;
+END_IF;
+REG_KEY_b.act_length:=B#16#11;
+tSProductID:='PAC...XV94501MB1.';
+ 
+IF (sSTATUS_TIMER AND W#16#60) <> W#16#0 THEN
+    IF (sSTATUS_TIMER AND W#16#20) <> W#16#0 THEN
+        RDSYSST.REQ:=true;
+        sSTATUS_TIMER:=sSTATUS_TIMER OR W#16#4000;
+    ELSE
+        RDSYSST.REQ:=false;
+    END_IF;
+ 
+ 
+    RDSYSST.RET_WERT:=RDSYSST(
+     REQ :=  RDSYSST.REQ
+    ,SZL_ID := W#16#11C     // SSL-ID W#16#xy1C - Component Identification
+    ,INDEX :=   W#16#5      // W#16#0005: Serial number of the module
+    ,BUSY := RDSYSST.BUSY
+    ,SZL_HEADER := RDSYSST.SZL_HEADER
+    ,DR := RDSYSST.SZL_11C_5
+    );
+           // Serial number OF the module; character STRING with MAX. length OF 24
+           // characters. Shorter numbers are filled with B#16#00.
+           // Note: This serial number is unique world-wide FOR SIMATIC components AND
+           // permanently associated TO the CPU hardware, that is, it remains unchanged
+           // when a firmware update is performed.
+    IF RDSYSST.BUSY     THEN
+        sSTATUS_TIMER:=(sSTATUS_TIMER AND W#16#FFBF) OR W#16#40;
+    ELSE
+        sSTATUS_TIMER:=sSTATUS_TIMER AND W#16#FF9F;
+        IF RDSYSST.RET_WERT<>0 THEN
+            sSTATUS_TIMER:=sSTATUS_TIMER AND W#16#FFFB;
+            ERROR:=true;
+            STATUS:=W#16#A084;
+        ELSE
+            FOR i:= 0 TO 16 BY 1 DO
+                // result - string with symbols in range 'A'-'M'
+                sACODE[INT_TO_DINT(i)]:=INT_TO_BYTE(BYTE_TO_INT(CHAR_TO_BYTE(RDSYSST.SZL_11C_5.serialn[INT_TO_DINT(i)]) XOR (tSProductID_b.str[INT_TO_DINT(i)])) MOD 13 + 65);
+            END_FOR;
+            sACODE[17]:=B#16#32; // '2'
+            j:=BLKMOV( SRCBLK := sACODE, DSTBLK := IDENT_CODE);
+        END_IF;
+    END_IF;
+END_IF;       
+   
+   
+IF sACODE[17]=B#16#32 THEN// '2'
+    reg:=0;
+    WHILE reg<=16 DO
+        IF REG_KEY_b.str[reg] <> sSTATUS_CODE_b.str[reg] THEN
+            device_tsap_st.s:=W#16#0;
+            FOR L:=1 TO 3 BY 1 DO
+                IF BLKMOV(SRCBLK := IDENT_CODE, DSTBLK := sACODE )=0 THEN
+                    IF L=1 THEN
+                        tSProductID_b.str[3]:=b#16#30;
+                        tSProductID_b.str[4]:=b#16#32;
+                        tSProductID_b.str[5]:=b#16#30;
+                        tSProductID_b.str[16]:=b#16#32;
+                    ELSIF L=2 THEN
+                        tSProductID_b.str[3]:=b#16#31;
+                        tSProductID_b.str[4]:=b#16#30;
+                        tSProductID_b.str[5]:=b#16#30;
+                        tSProductID_b.str[16]:=b#16#33;
+                    ELSE
+                        tSProductID_b.str[3]:=b#16#35;
+                        tSProductID_b.str[4]:=b#16#31;
+                        tSProductID_b.str[5]:=b#16#32;
+                        tSProductID_b.str[16]:=b#16#34;
+                    END_IF;
+               
+                    FOR i:=0 TO 16 BY 1 DO
+                        rcv_time:= SHL(IN:=B#16#1, N:=BYTE_TO_INT(INT_TO_BYTE(i) AND 7));
+           
+                        FOR k:=0 TO 7 BY 1 DO
+                            snd_time:= SHL(IN:=B#16#1, N:=7-k);
+                            pos:=i/8*8+k;
+                           
+                            IF (tSProductID_b.str[i] AND snd_time) = snd_time THEN
+                                sHoldingRegisterState[pos]:=sHoldingRegisterState[pos] OR rcv_time ;
+                            END_IF;
+                        END_FOR;
+                    END_FOR;
+       
+                    FOR i:=0 TO 16 BY 1 DO
+                        tALicenseKey[i]:=(sACODE[i] XOR sHoldingRegisterState[i]) XOR INT_TO_BYTE(i+1);
+                        tALicenseKey[i]:=INT_TO_BYTE(BYTE_TO_INT(tALicenseKey[i]) MOD 26 + 65); // 65='A'
+                    END_FOR;                    
+                   
+                    FOR i:=0 TO 23 BY 1 DO
+                        sHoldingRegisterState[i]:=B#16#0;   
+                    END_FOR;   
+                    tALicenseKey[17]:=B#16#0;
+                    IF BLKMOV(SRCBLK := REG_KEY,DSTBLK := sACODE)=0 THEN
+                        FOR i:=0 TO 16 BY 1 DO
+                            IF tALicenseKey[i]<>sACODE[i] THEN
+                                sSTATUS_TIMER:=sSTATUS_TIMER AND W#16#FFFB;                              
+                                EXIT;
+                            END_IF;
+                            IF i=16 THEN
+                                sSTATUS_TIMER:=sSTATUS_TIMER OR W#16#4;
+                                IF L=1 THEN
+                                    device_tsap_st.s:=W#16#14;
+                                ELSIF L=2 THEN
+                                    device_tsap_st.s:=W#16#64;
+                                ELSE
+                                    device_tsap_st.s:=W#16#200;
+                                END_IF;
+                            END_IF;
+                        END_FOR;
+                   
+                        BasicTypes:='_DIDGKFMPIHMKGDL_';
+                        FOR i:=0 TO 16 BY 1 DO
+                            IF REG_KEY_b.str[i]<>BasicTypes_b.str[i] THEN
+                                EXIT;
+                            ELSE
+                                IF i=16 THEN
+                                    sSTATUS_TIMER:=sSTATUS_TIMER OR W#16#4;
+                                    EXIT;
+                                END_IF;
+                            END_IF;
+                        END_FOR;
+                        BasicTypes:='                 ';
+                        IF device_tsap_st.s<>W#16#0 THEN
+                            EXIT;
+                        END_IF;
+                    END_IF;   
+                END_IF;
+            END_FOR;
+            j:=BLKMOV(SRCBLK := REG_KEY,DSTBLK := sSTATUS_CODE);
+        END_IF;
+        reg:=reg+1;
+    END_WHILE; 
+END_IF;
+IF ((sSTATUS_TIMER AND W#16#4) = W#16#0) THEN
+    TON(IN := TON.IN ,PT := T#4S);
+    TON.IN:=true;
+    IF TON.Q THEN
+        address:=60000;
+        TON.IN:=M[address,0]; 
+   
+        sSTATUS_TEMP:=INT_TO_WORD(WR_USMSG(SEND := false
+        ,EVENTN := W#16#A090 // The block is not licensed for this CPU. This is a status information. The bit ERROR is not set. The Modbus communication runs without a license as well.
+        ,INFO1 :=  sAREA_1
+        ,INFO2 :=  sAREA_2
+        ));
+ 
+        IF sSTATUS_TEMP<>W#16#0 THEN
+            ERROR:=true;
+            STATUS:=sSTATUS_TEMP;
+            sSTATUS_FUNC:='WR_USMSG';
+        END_IF;
+        TON.IN:=false;
+    END_IF;
+    IF STATUS = W#16#0 THEN
+        STATUS:=W#16#A090;
+    END_IF; // The block  is not licensed for this CPU. This is a status information. The bit ERROR is not set. The Modbus communication runs without a license as well.
+END_IF;
+ 
+IF j<>0 THEN    
+    ERROR:=true;
+    STATUS:=W#16#A085;// An error occurred during the license handling due to an invalid write access.
+END_IF;
+IF NOT sANLAUF_FEHLER AND First_STATUS=W#16#0 AND sSTATUS<>W#16#0 THEN
+    First_STATUS:=sSTATUS;
+END_IF;
+IF Number_of_finished_IDs<>0 AND Number_of_finished_IDs=Used_Number_of_IDs THEN
+    FOR id_nr:=1 TO Max_Number_of_IDs BY 1 DO
+        Connection[id_nr].Finished:=false;
+        IF WORD_TO_DINT(Connection[id_nr].Conn.id)<>0 THEN
+            ERROR:=ERROR OR Connection[id_nr].Error;
+        END_IF;
+        IF id_nr=Max_Number_of_IDs AND First_STATUS=W#16#0 THEN
+            DONE:=true;
+        END_IF;
+        Connection[id_nr].Done:=false;
+        Connection[id_nr].Error:=false;
+        Connection[id_nr].Enable_Found:=false;
+    END_FOR;
+    Device:=0;
+    Number_of_finished_IDs:=0;
+    Cycle_running:=false;
+    Last_Data_Area:=false;
+    IF First_STATUS<>W#16#0 THEN
+        STATUS:=First_STATUS;
+        First_STATUS:=W#16#0;
+    END_IF;
+    IF WORD_TO_INT(device_tsap_st.s)<>0 AND Used_Number_of_PACs>WORD_TO_INT(device_tsap_st.s) OR More_PACs_Found THEN
+        STATUS:=W#16#A087;
+        DONE:=false;
+    END_IF;
+    IF STATUS<>W#16#0 AND STATUS<>W#16#A089 AND STATUS<>W#16#A090 THEN
+        ERROR:=true;
+    ELSE
+        ERROR:=false;
+    END_IF;   
+END_IF;   
+ 
+IF WORD_TO_DINT(STATUS)>=40960 AND ERROR THEN
+    sSTATUS_FUNC:='MB_PACxy';
+END_IF;
+sSTATUS:=w#16#0;
+IF TON_CONN_CNT_running THEN
+    TON_CONN_CNT(IN :=TRUE,PT := sCONN_WAIT );
+    IF  TON_CONN_CNT.Q THEN
+        TON_CONN_CNT(IN :=false,PT := sCONN_WAIT);
+        TON_CONN_CNT_running:=false; 
+    END_IF;   
+END_IF;
+IF NOT TON_CONN_CNT_running AND start_Cons=sCONN_CNT THEN
+    start_Cons:=0;
+    Conn_cnt_full:=false;
+END_IF;
+Check_interrupt:=false;
+ 
+END_FUNCTION_BLOCK

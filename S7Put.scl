@@ -1,0 +1,261 @@
+// Name: FB1199
+// Symbolic Name: S7Put
+// Symbol Comment: PUT Communication
+// Family: COMM
+// Version: 1.0
+// Author: S7LibIL
+// Last modified: 03/07/2012
+// Use: SFB15, SFC107, SFC19, SFC6
+// Size: 1288 bytes
+// Signature: compiled by SCL compiler version: SCLCOMP K05.03.07.00_01.02.00.01 release
+
+
+ 
+{
+Scl_ResetOptions ;
+Scl_OverwriteBlocks:=           'y' ;
+Scl_GenerateReferenceData :=    'y' ;
+Scl_S7ServerActive:=            'n' ;
+Scl_CreateObjectCode:=          'y' ;
+Scl_OptimizeObjectCode:=        'y' ;
+Scl_MonitorArrayLimits:=        'n' ;
+Scl_CreateDebugInfo :=          'y' ;
+Scl_SetOKFlag:=                 'n' ;
+Scl_SetMaximumStringLength:=    '254'
+}
+
+FUNCTION_BLOCK FB11199
+TITLE ='S7Put Put Data into remote CPU'
+{ S7_alarm_ui := '1'; S7_m_c := 'true'; S7_tasklist := 'OB100' }
+AUTHOR : S7LibIL
+FAMILY : COMM
+NAME : S7Put
+VERSION : '1.0'
+// reversed by komatic
+
+VAR_INPUT
+  RESTART { S7_visible := 'false'; S7_dynamic := 'true'; S7_link := 'false' }: BOOL ;    //1=Manual Restart
+  START { S7_visible := 'true'; S7_dynamic := 'true'; S7_link := 'false' }: BOOL ;    //1=Start writing
+  KOM_ID { S7_dynamic := 'true'; S7_link := 'false' }: INT ;    //ID for connection
+  DBNO_SRC { S7_dynamic := 'true'; S7_link := 'false' }: INT ;    //No of source data block
+  ADDR_SRC { S7_dynamic := 'true'; S7_link := 'false' }: DWORD ;    //Start address of source data
+  DBNO_DST { S7_dynamic := 'true'; S7_link := 'false' }: INT ;    //No of destination data block 
+  ADDR_DST { S7_dynamic := 'true'; S7_link := 'false' }: DWORD ;    //Start address of destination data
+  LENGTH { S7_dynamic := 'true'; S7_link := 'false' }: INT  := 400;    //Length of data in BYTE   
+  L_MSGLCK : BOOL ;    //Linkable input for message suppression 1=active
+  MONITOR { S7_link := 'false'; S7_string_0 := 'Monitoring=Off'; S7_string_1 := 'Monitoring=On' }: BOOL  := TRUE;    //1=Monitoring active
+  TIME_MON { S7_visible := 'false'; S7_link := 'false'; S7_shortcut := 'Monitoringtime'; S7_unit := 's' }: REAL  := 3.000000e+001;    //Monitoring time [s]
+  LIFE_BIT { S7_dynamic := 'true'; S7_visible := 'true'; S7_string_0 := 'Neg'; S7_string_1 := 'Pos' }: BOOL ;    //1=Communication failure
+  EN_LIFE { S7_dynamic := 'true'; S7_visible := 'true'; S7_link := 'false' }: BOOL ;    //1=Enable LIFE_BIT
+  SAMPLE_T { S7_visible := 'false'; S7_link := 'false'; S7_sampletime := 'true' }: REAL  := 1.000000e-001;    //Sample time [s]
+  SUPPTIME { S7_link := 'false' }: REAL  := 1.000000e+001;    //Suppression time [s]
+  MSG_EVID { S7_dynamic := 'false'; S7_visible := 'false'; S7_link := 'false'; S7_param := 'false'; S7_server := 'alarm_archiv'; S7_a_type := 'alarm_s' }: DWORD ;    //Message ID
+  RUNUPCYC { S7_dynamic := 'false'; S7_visible := 'false'; S7_link := 'false' }: INT  := 3;    //Lag: Number of Run Up Cycles
+  CMP_ID : DWORD  := DW#16#1;    //area code
+END_VAR
+VAR_OUTPUT
+  QDONE { S7_dynamic := 'true'; S7_string_0 := '0'; S7_string_1 := 'Job executed' }: BOOL ;    //1=Job has been executed
+  QERR { S7_dynamic := 'true'; S7_m_c := 'true'; S7_string_0 := 'OK'; S7_string_1 := 'Error' }: BOOL ;    //1=Group error
+  QSTOERUNG { S7_dynamic := 'true'; S7_m_c := 'true'; S7_string_0 := 'OK'; S7_string_1 := 'Error' }: BOOL ;    //1=Monitoring error
+  QLIFE_BIT { S7_dynamic := 'true'; S7_string_0 := 'OK'; S7_string_1 := 'Error' }: BOOL ;    //1=Communication failure
+  QSTATUS { S7_dynamic := 'true' }: DWORD ;    //Status display
+  QMSG_ERR { S7_dynamic := 'false'; S7_string_0 := 'OK'; S7_string_1 := 'Message Error' }: BOOL ;    //1=Message failure
+  QMSGLCK { S7_dynamic := 'true'; S7_m_c := 'true'; S7_string_0 := 'Unlocked'; S7_string_1 := 'Lock' }: BOOL ;    //1=Message locked
+  QMSG_SUP { S7_dynamic := 'false'; S7_m_c := 'true'; S7_string_0 := 'Unlocked'; S7_string_1 := 'Lock' }: BOOL ;    //1=Message suppression active 
+  MSG_STAT { S7_dynamic := 'false'; S7_visible := 'false' }: WORD ;    //Message: STATUS output
+  MSG_ACK { S7_dynamic := 'false'; S7_visible := 'false' }: BOOL ;    //Message: ACK_STATE output
+END_VAR
+VAR
+  siRunUpCounter : INT ;    //Hochlaufzдhler
+  PUT_1 : SFB15;    //Daten in eine remoten CPU schreiben (SFB 15)
+  sbMsgLock : BOOL ;    //Meldungen sperren
+  srSampleTime : REAL ;    //Abtastzeit
+  sbLifeBit : BOOL ;    //Lebenszeichen 
+  srLifeBitCnt : REAL ;    //Lebenszeichen-Zдhler
+  sbLifeBitPos : BOOL ;    //Lebenszeichen positive Flanke
+  sbLifeBitPosOld : BOOL ;    //Lebenszeichen positive Flanke alter Zustand  
+  sbLifeBitNeg : BOOL ;    //Lebenszeichen negative Flanke
+  sbLifeBitNegOld : BOOL ;    //Lebenszeichen negative Flanke alter Zustand
+  sbStoerung : BOOL ;    //Kommunikationsstцrung  
+  sbMonitorError : BOOL ;    //Laufzeit-Fehler
+  srMonitorErrorCnt : REAL ;    //Laufzeit-Fehler Zдhler
+  sbMonitorErrorStart : BOOL ;    //Laufzeit-Fehler Zдhler Start 
+  ZEIT : REAL ;    //Zeit in sec. seit letzter Дnderung von I
+  MSG_EN : BOOL ;    //Freigabe Meldung 
+  liRetVal : INT ;    //Fehler vom SFC Aufruf
+  sbState : BOOL ;    //Status der Meldung
+  Begleitwert : STRUCT     
+   Wert1 : WORD ;    
+   Wert2 : BYTE ;    
+   Wert3 : BYTE ;    
+  END_STRUCT ;    
+END_VAR
+VAR_TEMP
+  OB_NO : INT ;    //aufgerufende Organisationsbaustein
+  sbERR : INT ;    //Fehler vom SFC 6 Aufruf
+  sbREQ : BOOL ;    //aktiviert den Datenaustausch bei steigender Flanke
+  sbStatus : INT ;    //Verbindungsstatus
+  prMonitorTime : REAL ;    //berechnete Laufzeit
+  prLifeBitTimer : REAL ;    //berechnete Lebenszeichenzeit       
+  TOP_SI : STRUCT     
+   EV_CLASS : BYTE ;    
+   EV_NUM : BYTE ;    
+   PRIORITY : BYTE ;    
+   NUM : BYTE ;    
+   TYP2_3 : BYTE ;    
+   TYP1 : BYTE ;    
+   ZI1 : WORD ;    
+   ZI2_3 : DWORD ;    
+  END_STRUCT ;    
+  START_UP_SI : STRUCT     
+   EV_CLASS : BYTE ;    
+   EV_NUM : BYTE ;    
+   PRIORITY : BYTE ;    
+   NUM : BYTE ;    
+   TYP2_3 : BYTE ;    
+   TYP1 : BYTE ;    
+   ZI1 : WORD ;    
+   ZI2_3 : DWORD ;    
+  END_STRUCT ;    
+  SRC_ANY : ANY ;    //Anyzeiger der Quelle
+  SRC_ANY_st AT SRC_ANY : STRUCT
+    b0 : BYTE;
+    b1 : BYTE;
+    w2 : INT;
+    w3 : INT;
+    d4 : DWORD;
+    END_STRUCT;    
+   DST_ANY : ANY ;    //Anyzeiger des Ziels
+  DST_ANY_st AT DST_ANY : STRUCT
+    b0 : BYTE;
+    b1 : BYTE;
+    w2 : INT;
+    w3 : INT;
+    d4 : DWORD;
+    END_STRUCT;    
+
+END_VAR
+BEGIN
+
+sbERR:=RD_SINFO(TOP_SI :=TOP_SI,START_UP_SI :=START_UP_SI ); 
+OB_NO:=BYTE_TO_INT(TOP_SI.NUM);
+IF (OB_NO=100) OR RESTART THEN 
+    siRunUpCounter:=RUNUPCYC;
+END_IF; 
+
+IF siRunUpCounter>0 THEN (*A7d1*)
+    siRunUpCounter:=siRunUpCounter-1;
+    QERR:=FALSE;
+    QLIFE_BIT:=FALSE;
+    QDONE:=FALSE;
+    sbREQ:=FALSE;
+    sbStoerung:=FALSE;
+    QMSG_ERR:=FALSE;
+    sbMonitorError:=FALSE;
+    sbMonitorErrorStart:=FALSE;
+    srMonitorErrorCnt:=0.0;
+    sbLifeBit:=FALSE;
+    srLifeBitCnt:=0.0;
+ELSE (*A7d1*)
+    IF (MSG_STAT=W#16#15) OR L_MSGLCK THEN 
+        sbMsgLock:=TRUE;
+        QMSG_SUP:=TRUE;
+    ELSE (*A7d3*)
+        sbMsgLock:=FALSE;
+        QMSG_SUP:=FALSE;
+    END_IF;
+    IF srSampleTime<=0.0 THEN
+        srSampleTime:=0.1;
+    ELSE (*A7d5*)
+        srSampleTime:=SAMPLE_T;
+    END_IF;
+    prLifeBitTimer:=TIME_MON/srSampleTime;
+    prMonitorTime:=TIME_MON/srSampleTime;
+    IF sbStoerung THEN sbMonitorErrorStart:=TRUE; END_IF;
+    IF NOT(sbStoerung) THEN sbMonitorErrorStart:=FALSE;    END_IF;
+    IF (sbMonitorErrorStart) AND MONITOR THEN 
+        srMonitorErrorCnt:=srMonitorErrorCnt+1.0;
+    ELSE 
+        srMonitorErrorCnt:=0.0;
+    END_IF;
+    IF (srMonitorErrorCnt>=prMonitorTime) AND MONITOR THEN
+        sbMonitorError:=TRUE;
+    END_IF;
+    IF NOT(sbStoerung) THEN 
+        sbMonitorError:=FALSE;
+    END_IF;
+    sbLifeBitPos:=(LIFE_BIT) AND sbLifeBitPosOld;
+    sbLifeBitPosOld:=LIFE_BIT;
+    sbLifeBitNeg:=(NOT(LIFE_BIT)) AND sbLifeBitNegOld;
+    sbLifeBitNegOld:=NOT(LIFE_BIT);
+    IF ((((sbLifeBitPos) OR sbLifeBitNeg) AND EN_LIFE) AND START) AND MONITOR THEN (*A7dd*)
+        IF NOT(sbLifeBit) THEN 
+            srLifeBitCnt:=srLifeBitCnt+1.0;
+        END_IF; 
+        IF srLifeBitCnt>=prLifeBitTimer THEN
+            sbLifeBit:=TRUE;
+        END_IF;
+    ELSE
+        srLifeBitCnt:=0.0;
+        sbLifeBit:=FALSE;
+    END_IF;
+    SRC_ANY_st.b0:=B#16#10;
+    SRC_ANY_st.b1:=B#16#2;
+    SRC_ANY_st.w2:=LENGTH;
+    SRC_ANY_st.w3:=DBNO_SRC;
+    SRC_ANY_st.d4:=SHL(IN:=ADDR_SRC,N:=3) OR DW#16#84000000;
+    
+    DST_ANY_st.b0:=B#16#10;
+    DST_ANY_st.b1:=B#16#2;
+    DST_ANY_st.w2:=LENGTH;
+    DST_ANY_st.w3:=DBNO_DST;
+    DST_ANY_st.d4:=SHL(IN:=ADDR_DST,N:=3) OR DW#16#84000000;
+    
+    IF (((((KOM_ID<>0) AND START) AND (DBNO_SRC<>0)) AND (DBNO_DST<>0)) AND (LENGTH<>0)) AND (NOT((LENGTH-DWORD_TO_INT(ADDR_SRC))>400)) THEN 
+        sbREQ:=TRUE;
+        IF (QDONE) OR sbStoerung THEN 
+            sbREQ:=FALSE;
+        END_IF;
+    ELSE 
+        sbREQ:=FALSE;
+    END_IF;
+    PUT_1(REQ := sbREQ
+          ,ID := INT_TO_WORD(KOM_ID)
+          ,ADDR_1 :=  DST_ANY
+          ,SD_1 := SRC_ANY
+          ); 
+    QDONE:=PUT_1.DONE;
+    sbStoerung:=PUT_1.ERROR;
+    QSTATUS:=PUT_1.STATUS;
+    QLIFE_BIT:=sbLifeBit;
+    QSTOERUNG:=sbMonitorError;
+    IF (sbStoerung) OR sbLifeBit THEN 
+        IF (ZEIT>=SUPPTIME) OR (SUPPTIME<SAMPLE_T) THEN
+            MSG_EN:=TRUE;
+            QERR:=TRUE;
+        ELSE 
+            ZEIT:=ZEIT+SAMPLE_T;
+        END_IF;
+    ELSE 
+        MSG_EN:=FALSE;
+        ZEIT:=0.0;
+        QERR:=FALSE;
+    END_IF;
+    sbStatus:=DWORD_TO_INT(QSTATUS);
+     liRetVal:=ALARM_DQ(SIG :=  (((sbMonitorError) OR sbLifeBit) AND (NOT(sbMsgLock))) AND MSG_EN
+              ,ID := W#16#EEEE 
+              ,EV_ID := MSG_EVID 
+              ,CMP_ID := CMP_ID 
+              ,SD := Begleitwert 
+              );
+    QMSG_ERR:=(liRetVal<>0) OR QMSG_ERR;
+    liRetVal:=ALARM_SC(EV_ID := MSG_EVID 
+             ,STATE :=  sbState
+             ,Q_STATE := MSG_ACK 
+             );
+    QMSG_ERR:=(liRetVal<>0) OR QMSG_ERR;
+    MSG_STAT:=INT_TO_WORD(liRetVal);
+END_IF; 
+
+END_FUNCTION_BLOCK
+

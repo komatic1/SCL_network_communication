@@ -1,0 +1,706 @@
+{
+Scl_ResetOptions ;
+Scl_OverwriteBlocks:= 'y' ;
+Scl_GenerateReferenceData := 'y' ;
+Scl_S7ServerActive:= 'y' ;
+Scl_CreateObjectCode:= 'y' ;
+Scl_OptimizeObjectCode:= 'y' ;
+Scl_MonitorArrayLimits:= 'n' ;
+Scl_CreateDebugInfo := 'n' ;
+Scl_SetOKFlag:= 'n' ;
+Scl_SetMaximumStringLength:= '254'
+}
+FUNCTION_BLOCK FB11272
+TITLE ='S7MonAn08 value monitoring with 8 limits'
+{ S7_m_c := 'true'; S7_alarm_ui := '1'; S7_tasklist := 'OB100' }
+AUTHOR : S7LibIL
+FAMILY : MONITOR
+NAME : S7MonA08
+VERSION : '1.0'
+//reversed by komatic
+
+VAR_INPUT
+  ENABLE : BOOL  := TRUE;    //Enable Function     
+  RESTART { S7_visible := 'false'; S7_link := 'false' }: BOOL ;    //Manual Restart       
+  U { S7_dynamic := 'true' }: REAL ;    //Measured Value
+  MO_PVLR { S7_m_c := 'true'; S7_shortcut := 'Low Range' }: REAL  := -1.000000e+002;    //Low Range Bar
+  MO_PVHR { S7_m_c := 'true'; S7_shortcut := 'High Range' }: REAL  := 1.000000e+002;    //High Range Bar
+  HYS { S7_m_c := 'true'; S7_link := 'false'; S7_shortcut := 'Hysteresis'; S7_unit := '' }: REAL  := 1.0;    //Hysteresis
+  DELAY_T1 : REAL ;    //Delaytime for Limit 1 Monitoring 
+  DELAY_T2 : REAL ;    //Delaytime for Limit 2 Monitoring
+  DELAY_T3 : REAL ;    //Delaytime for Limit 3 Monitoring
+  DELAY_T4 : REAL ;    //Delaytime for Limit 4 Monitoring
+  DELAY_T5 : REAL ;    //Delaytime for Limit 5 Monitoring
+  DELAY_T6 : REAL ;    //Delaytime for Limit 6 Monitoring
+  DELAY_T7 : REAL ;    //Delaytime for Limit 7 Monitoring
+  DELAY_T8 : REAL ;    //Delaytime for Limit 8 Monitoring
+  MODE_1 { S7_m_c := 'true' }: BYTE  := B#16#80;    //Mode Limit 1
+  MODE_2 { S7_m_c := 'true' }: BYTE  := B#16#80;    //Mode Limit 2
+  MODE_3 { S7_m_c := 'true' }: BYTE  := B#16#80;    //Mode Limit 3
+  MODE_4 { S7_m_c := 'true' }: BYTE  := B#16#80;    //Mode Limit 4   
+  MODE_5 { S7_m_c := 'true' }: BYTE  := B#16#80;    //Mode Limit 5
+  MODE_6 { S7_m_c := 'true' }: BYTE  := B#16#80;    //Mode Limit 6
+  MODE_7 { S7_m_c := 'true' }: BYTE  := B#16#80;    //Mode Limit 7
+  MODE_8 { S7_m_c := 'true' }: BYTE  := B#16#80;    //Mode Limit 8
+  U_MAN { S7_m_c := 'true'; S7_link := 'false'; S7_shortcut := 'Manual Value' }: REAL ;    //Manual Value
+  U_SUBST { S7_m_c := 'true'; S7_link := 'false'; S7_shortcut := 'Subst. Value' }: REAL ;    //Substitution Value
+  CSF : BOOL ;    //External Failure (Channel fault)
+  MAN_EN { S7_m_c := 'true'; S7_string_0 := 'Manual=Off'; S7_string_1 := 'Manual=On' }: BOOL ;    //Manual Value Enable
+  SUBST_EN { S7_m_c := 'true'; S7_string_0 := 'Substitution=Off'; S7_string_1 := 'Substitution=On' }: BOOL ;    //Substituion Value Enable
+  M_SUP_1 { S7_visible := 'false'; S7_m_c := 'true'; S7_string_1 := 'activ'; S7_string_0 := 'inactiv' }: BOOL ;    //Suppress Alarm 1
+  M_SUP_2 { S7_visible := 'false'; S7_m_c := 'true'; S7_string_1 := 'activ'; S7_string_0 := 'inactiv' }: BOOL ;    //Suppress Alarm 2
+  M_SUP_3 { S7_visible := 'false'; S7_m_c := 'true'; S7_string_1 := 'activ'; S7_string_0 := 'inactiv' }: BOOL ;    //Suppress Alarm 3
+  M_SUP_4 { S7_visible := 'false'; S7_m_c := 'true'; S7_string_1 := 'activ'; S7_string_0 := 'inactiv' }: BOOL ;    //Suppress Alarm 4
+  M_SUP_5 { S7_visible := 'false'; S7_m_c := 'true'; S7_string_1 := 'activ'; S7_string_0 := 'inactiv' }: BOOL ;    //Suppress Alarm 5
+  M_SUP_6 { S7_visible := 'false'; S7_m_c := 'true'; S7_string_1 := 'activ'; S7_string_0 := 'inactiv' }: BOOL ;    //Suppress Alarm 6
+  M_SUP_7 { S7_visible := 'false'; S7_m_c := 'true'; S7_string_1 := 'activ'; S7_string_0 := 'inactiv' }: BOOL ;    //Suppress Alarm 7
+  M_SUP_8 { S7_visible := 'false'; S7_m_c := 'true'; S7_string_1 := 'activ'; S7_string_0 := 'inactiv' }: BOOL ;    //Suppress Alarm 8
+  MSG_LOCK { S7_visible := 'false'; S7_m_c := 'true'; S7_link := 'false'; S7_string_0 := 'inactiv'; S7_string_1 := 'activ' }: BOOL ;    //Message Lock
+  L_MSGLCK : BOOL ;    //Linkable Message Lock
+  LIMIT_OP { S7_m_c := 'true' }: BOOL  := TRUE;    //1=Limits enabled for operator
+  SAMPLE_T { S7_visible := 'false'; S7_link := 'false'; S7_sampletime := 'true' }: REAL  := 1.000000e-001;    //Sampletime
+  RUNUPCYC { S7_visible := 'false'; S7_link := 'false' }: INT  := 10;    //Lag: Number of Run Up Cycles
+  MSG_EVID_1 { S7_visible := 'false'; S7_link := 'false'; S7_param := 'false'; S7_server := 'alarm_archiv'; S7_a_type := 'alarm_s' }: DWORD ;    //Message ID
+  MSG_EVID_2 { S7_visible := 'false'; S7_link := 'false'; S7_param := 'false'; S7_server := 'alarm_archiv'; S7_a_type := 'alarm_s' }: DWORD ;    //Message ID
+  MSG_EVID_3 { S7_visible := 'false'; S7_link := 'false'; S7_param := 'false'; S7_server := 'alarm_archiv'; S7_a_type := 'alarm_s' }: DWORD ;    //Message ID
+  MSG_EVID_4 { S7_visible := 'false'; S7_link := 'false'; S7_param := 'false'; S7_server := 'alarm_archiv'; S7_a_type := 'alarm_s' }: DWORD ;    //Message ID
+  MSG_EVID_5 { S7_visible := 'false'; S7_link := 'false'; S7_param := 'false'; S7_server := 'alarm_archiv'; S7_a_type := 'alarm_s' }: DWORD ;    //Message ID
+  MSG_EVID_6 { S7_visible := 'false'; S7_link := 'false'; S7_param := 'false'; S7_server := 'alarm_archiv'; S7_a_type := 'alarm_s' }: DWORD ;    //Message ID
+  MSG_EVID_7 { S7_visible := 'false'; S7_link := 'false'; S7_param := 'false'; S7_server := 'alarm_archiv'; S7_a_type := 'alarm_s' }: DWORD ;    //Message ID
+  MSG_EVID_8 { S7_visible := 'false'; S7_link := 'false'; S7_param := 'false'; S7_server := 'alarm_archiv'; S7_a_type := 'alarm_s' }: DWORD ;    //Message ID
+  MSG_EVID_9 { S7_visible := 'false'; S7_link := 'false'; S7_param := 'false'; S7_server := 'alarm_archiv'; S7_a_type := 'alarm_s' }: DWORD ;    //Message ID
+  MSG_FILTER { S7_visible := 'true'; S7_link := 'true' }: DINT ;    //Message filter
+  AUX { S7_dynamic := 'true'; S7_qc := 'true'; S7_m_c := 'true' }: REAL ;    //Auxiliary Value
+  BA_EN { S7_visible := 'false'; S7_m_c := 'true' }: BOOL ;    //Batch Enable
+  OCCUPIED { S7_visible := 'false'; S7_m_c := 'true' }: BOOL ;    //Occupied by Batch
+  BA_ID { S7_visible := 'false'; S7_m_c := 'true' }: DWORD ;    //Batch ID
+  BA_NA { S7_visible := 'false'; S7_m_c := 'true' }: STRING  [32 ];    //Batch Name
+  STEP_NO { S7_visible := 'false'; S7_m_c := 'true' }: DWORD ;    //Batch Step Number
+  CMP_ID : DWORD  := DW#16#1;    //area code
+  PERMIS { S7_dynamic := 'true'; S7_m_c := 'true'; S7_enum := 'OP_Conf1'; S7_edit := 'para' }: INT  := 2;    //Switch authority  
+END_VAR
+VAR_OUTPUT
+  V { S7_dynamic := 'true'; S7_m_c := 'true'; S7_unit := ''; S7_archive := 'shortterm'; S7_trend := 'MO_PVLR,MO_PVHR' }: REAL ;    //Measured Value
+  QCSF { S7_m_c := 'true'; S7_dynamic := 'true' }: BOOL ;    //External Failure
+  QERR { S7_dynamic := 'true' }: BOOL ;    //Group Error
+  Q_LIM_1 { S7_dynamic := 'true' }: BOOL ;    //Limit 1 active
+  Q_LIM_2 { S7_dynamic := 'true' }: BOOL ;    //Limit 2 active
+  Q_LIM_3 { S7_dynamic := 'true' }: BOOL ;    //Limit 3 active
+  Q_LIM_4 { S7_dynamic := 'true' }: BOOL ;    //Limit 4 active
+  Q_LIM_5 { S7_dynamic := 'true' }: BOOL ;    //Limit 5 active
+  Q_LIM_6 { S7_dynamic := 'true' }: BOOL ;    //Limit 6 active
+  Q_LIM_7 { S7_dynamic := 'true' }: BOOL ;    //Limit 7 active
+  Q_LIM_8 { S7_dynamic := 'true' }: BOOL ;    //Limit 8 active
+  V_LIM_1 : REAL ;    //Limit 1
+  V_LIM_2 : REAL ;    //Limit 2
+  V_LIM_3 : REAL ;    //Limit 3
+  V_LIM_4 : REAL ;    //Limit 4
+  V_LIM_5 : REAL ;    //Limit 5
+  V_LIM_6 : REAL ;    //Limit 6
+  V_LIM_7 : REAL ;    //Limit 7
+  V_LIM_8 : REAL ;    //Limit 8
+  QOS_STAT { S7_m_c := 'true' }: BYTE ;    //Status Mask of Outputs Q_LIM_x
+  QMSG_ERR { S7_visible := 'false'; S7_dynamic := 'false' }: BOOL ;    //Message Error
+  QMSG_SUP { S7_m_c := 'true'; S7_dynamic := 'false' }: BOOL ;    //Message suppressed
+  MSG_STAT_1 { S7_visible := 'false' }: WORD ;    //Message Status
+  MSG_STAT_2 { S7_visible := 'false' }: WORD ;    //Message Status
+  MSG_STAT_3 { S7_visible := 'false' }: WORD ;    //Message Status
+  MSG_STAT_4 { S7_visible := 'false' }: WORD ;    //Message Status
+  MSG_STAT_5 { S7_visible := 'false' }: WORD ;    //Message Status
+  MSG_STAT_6 { S7_visible := 'false' }: WORD ;    //Message Status
+  MSG_STAT_7 { S7_visible := 'false' }: WORD ;    //Message Status
+  MSG_STAT_8 { S7_visible := 'false' }: WORD ;    //Message Status
+  MSG_STAT_9 { S7_visible := 'false' }: WORD ;    //Message Status  
+  MSG_ACK_1 { S7_visible := 'false' }: BOOL ;    //Message acknowledge
+  MSG_ACK_2 { S7_visible := 'false' }: BOOL ;    //Message acknowledge
+  MSG_ACK_3 { S7_visible := 'false' }: BOOL ;    //Message acknowledge
+  MSG_ACK_4 { S7_visible := 'false' }: BOOL ;    //Message acknowledge
+  MSG_ACK_5 { S7_visible := 'false' }: BOOL ;    //Message acknowledge
+  MSG_ACK_6 { S7_visible := 'false' }: BOOL ;    //Message acknowledge
+  MSG_ACK_7 { S7_visible := 'false' }: BOOL ;    //Message acknowledge
+  MSG_ACK_8 { S7_visible := 'false' }: BOOL ;    //Message acknowledge
+  MSG_ACK_9 { S7_visible := 'false' }: BOOL ;    //Message acknowledge
+  QOP_STAT : STRUCT     //Operator Panel status
+   UDT_IDENT : BYTE  := B#16#5;    //  UDT Identifier for UDT_S7PMonAn08
+   QOP_V : REAL ;    //  Status Process Value
+   MO_PVHR : REAL  := 1.000000e+002;    //  High Range
+   MO_PVLR : REAL ;    //  Low Range
+   MAN_EN : BOOL ;    //  Manual Enabled
+   QOP_QERR : BOOL ;    //  Status 1=Operator Panel 1=Error
+   QOS_STAT_F : WORD ;    //  Status for Operator Panel messages
+  END_STRUCT ;    
+END_VAR
+VAR_IN_OUT
+  U_LIM_1 { S7_visible := 'true'; S7_m_c := 'true'; S7_link := 'true'; S7_shortcut := 'Limit 1'; S7_unit := '' }: REAL ;    //Limit 1
+  U_LIM_2 { S7_visible := 'true'; S7_m_c := 'true'; S7_link := 'true'; S7_shortcut := 'Limit 2'; S7_unit := '' }: REAL ;    //Limit 2
+  U_LIM_3 { S7_visible := 'true'; S7_m_c := 'true'; S7_link := 'true'; S7_shortcut := 'Limit 3'; S7_unit := '' }: REAL ;    //Limit 3
+  U_LIM_4 { S7_visible := 'true'; S7_m_c := 'true'; S7_link := 'true'; S7_shortcut := 'Limit 4'; S7_unit := '' }: REAL ;    //Limit 4
+  U_LIM_5 { S7_visible := 'true'; S7_m_c := 'true'; S7_link := 'true'; S7_shortcut := 'Limit 5'; S7_unit := '' }: REAL ;    //Limit 5
+  U_LIM_6 { S7_visible := 'true'; S7_m_c := 'true'; S7_link := 'true'; S7_shortcut := 'Limit 6'; S7_unit := '' }: REAL ;    //Limit 6
+  U_LIM_7 { S7_visible := 'true'; S7_m_c := 'true'; S7_link := 'true'; S7_shortcut := 'Limit 7'; S7_unit := '' }: REAL ;    //Limit 7
+  U_LIM_8 { S7_visible := 'true'; S7_m_c := 'true'; S7_link := 'true'; S7_shortcut := 'Limit 8'; S7_unit := '' }: REAL ;    //Limit 8
+END_VAR
+VAR
+  siRunUpCounter : INT ;    //Hochlaufzдhler
+  sbMsgLock : BOOL ;    //Meldungen sperren
+  sbCSF : BOOL ;    //Externer Fehler
+  sbMsgGroupError : BOOL ;    //Gruppenfehler 
+  sbTempAlarmLow : BOOL ;    
+  sbLimit1 : BOOL ;    
+  sbLimit2 : BOOL ;    
+  sbLimit3 : BOOL ;    
+  sbLimit4 : BOOL ;    
+  sbLimit5 : BOOL ;    
+  sbLimit6 : BOOL ;    
+  sbLimit7 : BOOL ;    
+  sbLimit8 : BOOL ;    
+  sbDelayEn1 : BOOL ;    
+  sbDelayEn2 : BOOL ;    
+  sbDelayEn3 : BOOL ;    
+  sbDelayEn4 : BOOL ;    
+  sbDelayEn5 : BOOL ;    
+  sbDelayEn6 : BOOL ;    
+  sbDelayEn7 : BOOL ;    
+  sbDelayEn8 : BOOL ;    
+  srU : REAL ;    
+  srCountLimit1 : REAL ;    
+  srCountLimit2 : REAL ;    
+  srCountLimit3 : REAL ;    
+  srCountLimit4 : REAL ;    
+  srCountLimit5 : REAL ;    
+  srCountLimit6 : REAL ;    
+  srCountLimit7 : REAL ;    
+  srCountLimit8 : REAL ;    
+  srDelayCycle1 : REAL ;    
+  srDelayCycle2 : REAL ;    
+  srDelayCycle3 : REAL ;    
+  srDelayCycle4 : REAL ;    
+  srDelayCycle5 : REAL ;    
+  srDelayCycle6 : REAL ;    
+  srDelayCycle7 : REAL ;    
+  srDelayCycle8 : REAL ;    
+  pwOSStatus : WORD ;    //Status-Doppelwort
+  liRetVal : INT ;    //Fehler vom SFC Aufruf
+  sbState : BOOL ;    //Status der Meldung
+  sb_MSG_TRIG1 : BOOL ;    //Trigger MSG1    
+  sb_MSG_TRIG2 : BOOL ;    //Trigger MSG2    
+  sb_MSG_TRIG3 : BOOL ;    //Trigger MSG3    
+  sb_MSG_TRIG4 : BOOL ;    //Trigger MSG4    
+  sb_MSG_TRIG5 : BOOL ;    //Trigger MSG5   
+  sb_MSG_TRIG6 : BOOL ;    //Trigger MSG6    
+  sb_MSG_TRIG7 : BOOL ;    //Trigger MSG7    
+  sb_MSG_TRIG8 : BOOL ;    //Trigger MSG8    
+  sb_MSG_TRIG9 : BOOL ;    //Trigger MSG9    
+  AuxValue : STRUCT     
+   AUX : REAL ;    
+   BA_ID : DWORD ;    
+   MSG_FILTER : DINT ;    
+  END_STRUCT ;    
+END_VAR
+VAR_TEMP
+  pbERR_PT1 : BOOL ;    
+  TOP_SI : STRUCT     
+   EV_CLASS : BYTE ;    
+   EV_NUM : BYTE ;    
+   PRIORITY : BYTE ;    
+   NUM : BYTE ;    
+   TYP2_3 : BYTE ;    
+   TYP1 : BYTE ;    
+   ZI1 : WORD ;    
+   ZI2_3 : DWORD ;    
+  END_STRUCT ;    
+  START_UP_SI : STRUCT     
+   EV_CLASS : BYTE ;    
+   EV_NUM : BYTE ;    
+   PRIORITY : BYTE ;    
+   NUM : BYTE ;    
+   TYP2_3 : BYTE ;    
+   TYP1 : BYTE ;    
+   ZI1 : WORD ;    
+   ZI2_3 : DWORD ;    
+  END_STRUCT ;    
+  i_ret_val : INT ;    
+END_VAR
+BEGIN
+IF ENABLE THEN 
+    i_ret_val:=RD_SINFO(TOP_SI :=TOP_SI,START_UP_SI :=START_UP_SI ); 
+    IF TOP_SI.NUM=B#16#64 OR RESTART THEN 
+        siRunUpCounter:=RUNUPCYC;
+    END_IF; 
+
+    IF siRunUpCounter>0 THEN 
+        siRunUpCounter:=siRunUpCounter-1;
+        QMSG_SUP:=TRUE;
+        sbMsgLock:=TRUE;
+        sbCSF:=FALSE;
+        sbMsgGroupError:=FALSE;
+        srCountLimit1:=0.0;
+        srCountLimit2:=0.0;
+        srCountLimit3:=0.0;
+        srCountLimit4:=0.0;
+        srCountLimit5:=0.0;
+        srCountLimit6:=0.0;
+        srCountLimit7:=0.0;
+        srCountLimit8:=0.0;
+        sbLimit1:=FALSE;
+        sbLimit2:=FALSE;
+        sbLimit3:=FALSE;
+        sbLimit4:=FALSE;
+        sbLimit5:=FALSE;
+        sbLimit6:=FALSE;
+        sbLimit7:=FALSE;
+        sbLimit8:=FALSE;
+        sb_MSG_TRIG1:=FALSE;
+        sb_MSG_TRIG2:=FALSE;
+        sb_MSG_TRIG3:=FALSE;
+        sb_MSG_TRIG4:=FALSE;
+        sb_MSG_TRIG5:=FALSE;
+        sb_MSG_TRIG6:=FALSE;
+        sb_MSG_TRIG7:=FALSE;
+        sb_MSG_TRIG8:=FALSE;
+        sb_MSG_TRIG9:=FALSE;
+    ELSE 
+        IF DELAY_T1>0.0 THEN 
+            srDelayCycle1:=DELAY_T1/SAMPLE_T;
+            sbDelayEn1:=TRUE;
+        ELSE
+            sbDelayEn1:=FALSE;
+            srDelayCycle1:=0.0;
+        END_IF;
+        IF DELAY_T2>0.0 THEN 
+            srDelayCycle2:=DELAY_T2/SAMPLE_T;
+            sbDelayEn2:=TRUE;
+        ELSE 
+            sbDelayEn2:=FALSE;
+            srDelayCycle2:=0.0;
+        END_IF;
+        IF DELAY_T3>0.0 THEN 
+            srDelayCycle3:=DELAY_T3/SAMPLE_T;
+            sbDelayEn3:=TRUE;
+        ELSE 
+            sbDelayEn3:=FALSE;
+            srDelayCycle3:=0.0;
+        END_IF;
+        IF DELAY_T4>0.0 THEN 
+            srDelayCycle4:=DELAY_T4/SAMPLE_T;
+            sbDelayEn4:=TRUE;
+        ELSE 
+            sbDelayEn4:=FALSE;
+            srDelayCycle4:=0.0;
+        END_IF;
+        IF DELAY_T5>0.0 THEN 
+            srDelayCycle5:=DELAY_T5/SAMPLE_T;
+            sbDelayEn5:=TRUE;
+        ELSE 
+            sbDelayEn5:=FALSE;
+            srDelayCycle5:=0.0;
+        END_IF;
+        IF DELAY_T6>0.0 THEN 
+            srDelayCycle6:=DELAY_T6/SAMPLE_T;
+            sbDelayEn6:=TRUE;
+        ELSE 
+            sbDelayEn6:=FALSE;
+            srDelayCycle6:=0.0;
+        END_IF;
+        IF DELAY_T7>0.0 THEN 
+            srDelayCycle7:=DELAY_T7/SAMPLE_T;
+            sbDelayEn7:=TRUE;
+        ELSE 
+            sbDelayEn7:=FALSE;
+            srDelayCycle7:=0.0;
+        END_IF;
+        IF DELAY_T8>0.0 THEN 
+            srDelayCycle8:=DELAY_T8/SAMPLE_T;
+            sbDelayEn8:=TRUE;
+        ELSE 
+            sbDelayEn8:=FALSE;
+            srDelayCycle8:=0.0;
+        END_IF;
+        sbMsgLock:=(MSG_LOCK) OR L_MSGLCK;
+        sbCSF:=(NOT(MAN_EN)) AND CSF;
+        srU:=U;
+        IF sbCSF AND SUBST_EN THEN 
+            srU:=U_SUBST;
+        END_IF;
+        IF MAN_EN THEN
+            srU:=U_MAN;
+        END_IF;
+        IF (MODE_1 AND B#16#1)=B#16#1 THEN 
+            IF srU>=U_LIM_1 THEN 
+                sbLimit1:=TRUE;
+            ELSIF srU<(U_LIM_1-HYS) THEN 
+                    sbLimit1:=FALSE;
+            END_IF;
+        ELSE 
+            IF srU<=U_LIM_1 THEN 
+                sbLimit1:=TRUE;
+            ELSIF srU>(U_LIM_1+HYS) THEN 
+                sbLimit1:=FALSE;
+            END_IF;
+        END_IF;
+        IF (MODE_2 AND B#16#1)=B#16#1 THEN 
+            IF srU>=U_LIM_2 THEN
+                sbLimit2:=TRUE;
+            ELSIF srU<(U_LIM_2-HYS) THEN 
+                    sbLimit2:=FALSE;
+            END_IF;
+        ELSE 
+            IF srU<=U_LIM_2 THEN 
+                sbLimit2:=TRUE;
+            ELSIF srU>(U_LIM_2+HYS) THEN
+                sbLimit2:=FALSE;
+            END_IF;
+        END_IF;
+        IF (MODE_3 AND B#16#1)=B#16#1 THEN 
+            IF srU>=U_LIM_3 THEN 
+                sbLimit3:=TRUE;
+            ELSIF srU<(U_LIM_3-HYS) THEN 
+                    sbLimit3:=FALSE;
+            END_IF;
+        ELSE
+            IF srU<=U_LIM_3 THEN 
+                sbLimit3:=TRUE;
+            ELSIF srU>(U_LIM_3+HYS) THEN 
+                sbLimit3:=FALSE;
+            END_IF;
+        END_IF;
+        IF (MODE_4 AND B#16#1)=B#16#1 THEN 
+            IF srU>=U_LIM_4 THEN
+                sbLimit4:=TRUE;
+            ELSIF srU<(U_LIM_4-HYS) THEN 
+                sbLimit4:=FALSE;
+            END_IF;    
+        ELSE 
+            IF srU<=U_LIM_4 THEN 
+                sbLimit4:=TRUE;
+            ELSIF srU>(U_LIM_4+HYS) THEN 
+                sbLimit4:=FALSE;
+            END_IF;
+        END_IF;
+        IF (MODE_5 AND B#16#1)=B#16#1 THEN 
+            IF srU>=U_LIM_5 THEN 
+                sbLimit5:=TRUE;
+            ELSIF srU<(U_LIM_5-HYS) THEN 
+                    sbLimit5:=FALSE;
+            END_IF;    
+        ELSE 
+            IF srU<=U_LIM_5 THEN 
+                sbLimit5:=TRUE;
+            ELSIF srU>(U_LIM_5+HYS) THEN 
+                    sbLimit5:=FALSE;
+            END_IF;
+        END_IF;
+        IF (MODE_6 AND B#16#1)=B#16#1 THEN 
+            IF srU>=U_LIM_6 THEN 
+                sbLimit6:=TRUE;
+            ELSIF srU<(U_LIM_6-HYS) THEN 
+                sbLimit6:=FALSE;
+            END_IF;    
+        ELSE 
+            IF srU<=U_LIM_6 THEN 
+                sbLimit6:=TRUE;
+            ELSIF srU>(U_LIM_6+HYS) THEN
+                    sbLimit6:=FALSE;
+            END_IF;
+        END_IF;
+        IF (MODE_7 AND B#16#1)=B#16#1 THEN 
+            IF srU>=U_LIM_7 THEN 
+                sbLimit7:=TRUE;
+            ELSIF srU<(U_LIM_7-HYS) THEN 
+                sbLimit7:=FALSE;
+            END_IF;    
+        ELSE 
+            IF srU<=U_LIM_7 THEN 
+                sbLimit7:=TRUE;
+            ELSIF srU>(U_LIM_7+HYS) THEN 
+                sbLimit7:=FALSE;
+            END_IF;
+        END_IF;
+        IF (MODE_8 AND B#16#1)=B#16#1 THEN
+            IF srU>=U_LIM_8 THEN 
+                sbLimit8:=TRUE;
+            ELSIF srU<(U_LIM_8-HYS) THEN
+                sbLimit8:=FALSE;
+            END_IF;    
+        ELSE 
+            IF srU<=U_LIM_8 THEN 
+                sbLimit8:=TRUE;
+            ELSIF srU>(U_LIM_8+HYS) THEN
+                sbLimit8:=FALSE;
+            END_IF;
+        END_IF;
+        IF (sbLimit1) AND sbDelayEn1 THEN 
+            IF srCountLimit1<=srDelayCycle1 THEN 
+                srCountLimit1:=srCountLimit1+1.0;
+            END_IF;    
+        ELSE 
+            srCountLimit1:=0.0;
+        END_IF;
+        IF (sbLimit2) AND sbDelayEn2 THEN 
+            IF srCountLimit2<=srDelayCycle2 THEN 
+                srCountLimit2:=srCountLimit2+1.0;
+            END_IF;    
+        ELSE 
+            srCountLimit2:=0.0;
+        END_IF;
+        IF (sbLimit3) AND sbDelayEn3 THEN 
+            IF srCountLimit3<=srDelayCycle3 THEN 
+                srCountLimit3:=srCountLimit3+1.0;
+            END_IF;    
+        ELSE 
+            srCountLimit3:=0.0;
+        END_IF;
+        IF (sbLimit4) AND sbDelayEn4 THEN 
+            IF srCountLimit4<=srDelayCycle4 THEN 
+                srCountLimit4:=srCountLimit4+1.0;
+            END_IF;    
+        ELSE 
+            srCountLimit4:=0.0;
+        END_IF;
+        IF (sbLimit5) AND sbDelayEn5 THEN
+            IF srCountLimit5<=srDelayCycle5 THEN 
+                srCountLimit5:=srCountLimit5+1.0;
+            END_IF;    
+        ELSE 
+            srCountLimit5:=0.0;
+        END_IF;
+        IF (sbLimit6) AND sbDelayEn6 THEN 
+            IF srCountLimit6<=srDelayCycle6 THEN 
+                srCountLimit6:=srCountLimit6+1.0;
+            END_IF;    
+        ELSE 
+            srCountLimit6:=0.0;
+        END_IF;
+        IF (sbLimit7) AND sbDelayEn7 THEN 
+            IF srCountLimit7<=srDelayCycle7 THEN 
+                srCountLimit7:=srCountLimit7+1.0;
+            END_IF;    
+        ELSE 
+            srCountLimit7:=0.0;
+        END_IF;
+        IF (sbLimit8) AND sbDelayEn8 THEN 
+            IF srCountLimit8<=srDelayCycle8 THEN 
+                srCountLimit8:=srCountLimit8+1.0;
+            END_IF;    
+        ELSE 
+            srCountLimit8:=0.0;
+        END_IF;
+        sbLimit1:=(srCountLimit1>srDelayCycle1) OR ((NOT(sbDelayEn1)) AND sbLimit1);
+        sbLimit2:=(srCountLimit2>srDelayCycle2) OR ((NOT(sbDelayEn2)) AND sbLimit2);
+        sbLimit3:=(srCountLimit3>srDelayCycle3) OR ((NOT(sbDelayEn3)) AND sbLimit3);
+        sbLimit4:=(srCountLimit4>srDelayCycle4) OR ((NOT(sbDelayEn4)) AND sbLimit4);
+        sbLimit5:=(srCountLimit5>srDelayCycle5) OR ((NOT(sbDelayEn5)) AND sbLimit5);
+        sbLimit6:=(srCountLimit6>srDelayCycle6) OR ((NOT(sbDelayEn6)) AND sbLimit6);
+        sbLimit7:=(srCountLimit7>srDelayCycle7) OR ((NOT(sbDelayEn7)) AND sbLimit7);
+        sbLimit8:=(srCountLimit8>srDelayCycle8) OR ((NOT(sbDelayEn8)) AND sbLimit8);
+        QOP_STAT.QOP_V:=V;
+        QOP_STAT.MO_PVHR:=MO_PVHR;
+        QOP_STAT.MO_PVLR:=MO_PVLR;
+        QOP_STAT.MAN_EN:=MAN_EN;
+        QOP_STAT.QOP_QERR:=QERR;
+        pwOSStatus:=W#16#0;
+        QOP_STAT.QOS_STAT_F:=W#16#0;
+        IF (NOT(M_SUP_1)) AND sbLimit1 THEN pwOSStatus:=W#16#1;    END_IF;
+        QOP_STAT.QOS_STAT_F:=QOP_STAT.QOS_STAT_F OR pwOSStatus;
+        IF (NOT(M_SUP_2)) AND sbLimit2 THEN pwOSStatus:=W#16#2; END_IF;
+        QOP_STAT.QOS_STAT_F:=QOP_STAT.QOS_STAT_F OR pwOSStatus;
+        IF (NOT(M_SUP_3)) AND sbLimit3 THEN pwOSStatus:=W#16#4; END_IF;
+        QOP_STAT.QOS_STAT_F:=QOP_STAT.QOS_STAT_F OR pwOSStatus;
+        IF (NOT(M_SUP_4)) AND sbLimit4 THEN pwOSStatus:=W#16#8;    END_IF;
+        QOP_STAT.QOS_STAT_F:=QOP_STAT.QOS_STAT_F OR pwOSStatus;
+        IF (NOT(M_SUP_5)) AND sbLimit5 THEN pwOSStatus:=W#16#10; END_IF;
+        QOP_STAT.QOS_STAT_F:=QOP_STAT.QOS_STAT_F OR pwOSStatus;
+        IF (NOT(M_SUP_6)) AND sbLimit6 THEN pwOSStatus:=W#16#20; END_IF;
+        QOP_STAT.QOS_STAT_F:=QOP_STAT.QOS_STAT_F OR pwOSStatus;
+        IF (NOT(M_SUP_7)) AND sbLimit7 THEN pwOSStatus:=W#16#40; END_IF;
+        QOP_STAT.QOS_STAT_F:=QOP_STAT.QOS_STAT_F OR pwOSStatus;
+        IF (NOT(M_SUP_8)) AND sbLimit8 THEN pwOSStatus:=W#16#80; END_IF;
+        QOP_STAT.QOS_STAT_F:=QOP_STAT.QOS_STAT_F OR pwOSStatus;
+        IF sbCSF THEN pwOSStatus:=W#16#100;    END_IF;
+        QOP_STAT.QOS_STAT_F:=QOP_STAT.QOS_STAT_F OR pwOSStatus;
+        AuxValue.AUX:=AUX;
+        AuxValue.BA_ID:=BA_ID;
+        AuxValue.MSG_FILTER:=MSG_FILTER;
+        IF (NOT M_SUP_1 AND sbLimit1 AND NOT sbMsgLock) <> sb_MSG_TRIG1 THEN 
+             MSG_STAT_1:=INT_TO_WORD(ALARM_DQ(SIG := ((NOT M_SUP_1 ) AND sbLimit1) AND (NOT sbMsgLock)
+                      ,ID := W#16#EEEE 
+                      ,EV_ID := MSG_EVID_1
+                      ,CMP_ID := CMP_ID 
+                      ,SD := AuxValue 
+                      ));
+        ELSE 
+            ;
+        END_IF;    
+        sb_MSG_TRIG1:=((NOT(M_SUP_1)) AND sbLimit1) AND (NOT(sbMsgLock));
+        liRetVal:=ALARM_SC(EV_ID := MSG_EVID_1 
+                 ,STATE :=  sbState
+                 ,Q_STATE := MSG_ACK_1 
+                 );        
+        IF (NOT M_SUP_2 AND sbLimit2 AND NOT sbMsgLock) <> sb_MSG_TRIG2 THEN 
+             MSG_STAT_2:=INT_TO_WORD(ALARM_DQ(SIG := ((NOT M_SUP_2 ) AND sbLimit2) AND (NOT sbMsgLock)
+                      ,ID := W#16#EEEE 
+                      ,EV_ID := MSG_EVID_2
+                      ,CMP_ID := CMP_ID 
+                      ,SD := AuxValue 
+                      ));
+        ELSE 
+            ;
+        END_IF;    
+        sb_MSG_TRIG2:=((NOT(M_SUP_2)) AND sbLimit2) AND (NOT(sbMsgLock));
+        liRetVal:=ALARM_SC(EV_ID := MSG_EVID_2 
+                 ,STATE :=  sbState
+                 ,Q_STATE := MSG_ACK_2 
+                 );        
+        IF (NOT M_SUP_3 AND sbLimit3 AND NOT sbMsgLock) <> sb_MSG_TRIG3 THEN 
+             MSG_STAT_3:=INT_TO_WORD(ALARM_DQ(SIG := ((NOT M_SUP_3 ) AND sbLimit3) AND (NOT sbMsgLock)
+                      ,ID := W#16#EEEE 
+                      ,EV_ID := MSG_EVID_3
+                      ,CMP_ID := CMP_ID 
+                      ,SD := AuxValue 
+                      ));
+        ELSE 
+            ;
+        END_IF;    
+        sb_MSG_TRIG3:=((NOT(M_SUP_3)) AND sbLimit3) AND (NOT(sbMsgLock));
+        liRetVal:=ALARM_SC(EV_ID := MSG_EVID_3 
+                 ,STATE :=  sbState
+                 ,Q_STATE := MSG_ACK_3 
+                 );        
+        IF (NOT M_SUP_4 AND sbLimit4 AND NOT sbMsgLock) <> sb_MSG_TRIG4 THEN 
+             MSG_STAT_4:=INT_TO_WORD(ALARM_DQ(SIG := ((NOT M_SUP_4 ) AND sbLimit4) AND (NOT sbMsgLock)
+                      ,ID := W#16#EEEE 
+                      ,EV_ID := MSG_EVID_4
+                      ,CMP_ID := CMP_ID 
+                      ,SD := AuxValue 
+                      ));
+        ELSE
+            ;
+        END_IF;    
+        sb_MSG_TRIG4:=((NOT(M_SUP_4)) AND sbLimit4) AND (NOT(sbMsgLock));
+        liRetVal:=ALARM_SC(EV_ID := MSG_EVID_4 
+                 ,STATE :=  sbState
+                 ,Q_STATE := MSG_ACK_4 
+                 );        
+        IF (NOT M_SUP_5 AND sbLimit5 AND NOT sbMsgLock) <> sb_MSG_TRIG5 THEN 
+             MSG_STAT_5:=INT_TO_WORD(ALARM_DQ(SIG := ((NOT M_SUP_5 ) AND sbLimit5) AND (NOT sbMsgLock)
+                      ,ID := W#16#EEEE 
+                      ,EV_ID := MSG_EVID_5
+                      ,CMP_ID := CMP_ID 
+                      ,SD := AuxValue 
+                      ));
+        ELSE 
+            ;
+        END_IF;    
+        sb_MSG_TRIG5:=((NOT(M_SUP_5)) AND sbLimit5) AND (NOT(sbMsgLock));
+        liRetVal:=ALARM_SC(EV_ID := MSG_EVID_5 
+                 ,STATE :=  sbState
+                 ,Q_STATE := MSG_ACK_5 
+                 );        
+        IF (NOT M_SUP_6 AND sbLimit6 AND NOT sbMsgLock) <> sb_MSG_TRIG6 THEN 
+             MSG_STAT_6:=INT_TO_WORD(ALARM_DQ(SIG := ((NOT M_SUP_6 ) AND sbLimit6) AND (NOT sbMsgLock)
+                      ,ID := W#16#EEEE 
+                      ,EV_ID := MSG_EVID_6
+                      ,CMP_ID := CMP_ID 
+                      ,SD := AuxValue 
+                      ));
+        ELSE 
+            ;
+        END_IF;    
+        sb_MSG_TRIG6:=((NOT(M_SUP_6)) AND sbLimit6) AND (NOT(sbMsgLock));
+        liRetVal:=ALARM_SC(EV_ID := MSG_EVID_6 
+                 ,STATE :=  sbState
+                 ,Q_STATE := MSG_ACK_6 
+                 );        
+        IF (NOT M_SUP_7 AND sbLimit7 AND NOT sbMsgLock) <> sb_MSG_TRIG7 THEN 
+             MSG_STAT_7:=INT_TO_WORD(ALARM_DQ(SIG := ((NOT M_SUP_7 ) AND sbLimit7) AND (NOT sbMsgLock)
+                      ,ID := W#16#EEEE 
+                      ,EV_ID := MSG_EVID_7
+                      ,CMP_ID := CMP_ID 
+                      ,SD := AuxValue 
+                      ));
+        ELSE
+            ;
+        END_IF;    
+        sb_MSG_TRIG7:=((NOT(M_SUP_7)) AND sbLimit7) AND (NOT(sbMsgLock));
+        liRetVal:=ALARM_SC(EV_ID := MSG_EVID_7 
+                 ,STATE :=  sbState
+                 ,Q_STATE := MSG_ACK_7 
+                 );        
+        IF (NOT M_SUP_8 AND sbLimit8 AND NOT sbMsgLock) <> sb_MSG_TRIG8 THEN 
+             MSG_STAT_8:=INT_TO_WORD(ALARM_DQ(SIG := ((NOT M_SUP_8 ) AND sbLimit8) AND (NOT sbMsgLock)
+                      ,ID := W#16#EEEE 
+                      ,EV_ID := MSG_EVID_8
+                      ,CMP_ID := CMP_ID 
+                      ,SD := AuxValue 
+                      ));
+        
+        ELSE
+            ;
+        END_IF;    
+        sb_MSG_TRIG8:=((NOT(M_SUP_8)) AND sbLimit8) AND (NOT(sbMsgLock));
+        liRetVal:=ALARM_SC(EV_ID := MSG_EVID_8 
+                 ,STATE :=  sbState
+                 ,Q_STATE := MSG_ACK_8 
+                 );        
+        IF (NOT sbMsgLock AND sbCSF) <> sb_MSG_TRIG9 THEN 
+             MSG_STAT_9:=INT_TO_WORD(ALARM_DQ(SIG := (NOT(sbMsgLock)) AND sbCSF
+                      ,ID := W#16#EEEE 
+                      ,EV_ID := MSG_EVID_9
+                      ,CMP_ID := CMP_ID 
+                      ,SD := AuxValue 
+                      ));
+        ELSE
+            ;
+        END_IF;    
+        sb_MSG_TRIG9:=(NOT(sbMsgLock)) AND sbCSF;
+        liRetVal:=ALARM_SC(EV_ID := MSG_EVID_9 
+                 ,STATE :=  sbState
+                 ,Q_STATE := MSG_ACK_9 
+                 );
+                 
+        QMSG_ERR:=((((((((MSG_STAT_1<>W#16#0) OR (MSG_STAT_2<>W#16#0)) OR (MSG_STAT_3<>W#16#0)) OR 
+        (MSG_STAT_4<>W#16#0)) OR (MSG_STAT_5<>W#16#0)) OR (MSG_STAT_6<>W#16#0)) OR (MSG_STAT_7<>W#16#0)) OR (MSG_STAT_8<>W#16#0)) OR (MSG_STAT_9<>W#16#0);
+        sbMsgGroupError:=(((((((((((MODE_1 AND B#16#2)=B#16#0) AND sbLimit1) AND (NOT(M_SUP_1))) OR 
+        ((((MODE_2 AND B#16#2)=B#16#0) AND sbLimit2) AND (NOT(M_SUP_2)))) OR 
+        ((((MODE_3 AND B#16#2)=B#16#0) AND sbLimit3) AND (NOT(M_SUP_3)))) OR 
+        ((((MODE_4 AND B#16#2)=B#16#0) AND sbLimit4) AND (NOT(M_SUP_4)))) OR 
+        ((((MODE_5 AND B#16#2)=B#16#0) AND sbLimit5) AND (NOT(M_SUP_5)))) OR 
+        ((((MODE_6 AND B#16#2)=B#16#0) AND sbLimit6) AND (NOT(M_SUP_6)))) OR 
+        ((((MODE_7 AND B#16#2)=B#16#0) AND sbLimit7) AND (NOT(M_SUP_7)))) OR 
+        ((((MODE_8 AND B#16#2)=B#16#0) AND sbLimit8) AND (NOT(M_SUP_8)))) OR 
+        sbCSF;
+        V:=srU;
+        QCSF:=(NOT(MAN_EN)) AND CSF;
+        QERR:=(NOT(sbMsgLock)) AND sbMsgGroupError;
+        Q_LIM_1:=sbLimit1;
+        Q_LIM_2:=sbLimit2;
+        Q_LIM_3:=sbLimit3;
+        Q_LIM_4:=sbLimit4;
+        Q_LIM_5:=sbLimit5;
+        Q_LIM_6:=sbLimit6;
+        Q_LIM_7:=sbLimit7;
+        Q_LIM_8:=sbLimit8;
+        QOS_STAT:=B#16#0;
+        IF Q_LIM_1 THEN QOS_STAT:=QOS_STAT OR B#16#1; END_IF;
+        IF Q_LIM_2 THEN QOS_STAT:=QOS_STAT OR B#16#2; END_IF;
+        IF Q_LIM_3 THEN QOS_STAT:=QOS_STAT OR B#16#4; END_IF;
+        IF Q_LIM_4 THEN QOS_STAT:=QOS_STAT OR B#16#8; END_IF;
+        IF Q_LIM_5 THEN QOS_STAT:=QOS_STAT OR B#16#10;END_IF;
+        IF Q_LIM_6 THEN QOS_STAT:=QOS_STAT OR B#16#20;END_IF;
+        IF Q_LIM_7 THEN QOS_STAT:=QOS_STAT OR B#16#40;END_IF;
+        IF Q_LIM_8 THEN QOS_STAT:=QOS_STAT OR B#16#80;END_IF;
+        V_LIM_1:=U_LIM_1;
+        V_LIM_2:=U_LIM_2;
+        V_LIM_3:=U_LIM_3;
+        V_LIM_4:=U_LIM_4;
+        V_LIM_5:=U_LIM_5;
+        V_LIM_6:=U_LIM_6;
+        V_LIM_7:=U_LIM_7;
+        V_LIM_8:=U_LIM_8;
+    END_IF;
+    QMSG_SUP:=sbMsgLock;
+END_IF;
+
+END_FUNCTION_BLOCK
+
+

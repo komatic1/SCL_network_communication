@@ -1,0 +1,612 @@
+// Name: FB103
+// Symbolic Name: TCP_COMM
+// Symbol Comment: TCP Kommunikation
+// Family: COMM
+// Version: 4.0
+// Author: SIEMENS
+// Last modified: 02/10/2012
+// Use: FB63,FB64,FB65,FB66,FB99,SFB4,FC99
+// Size: 7112 bytes
+// Signature: generiert vom SCL Übersetzer Version: SCLCOMP K05.03.07.00_01.02.00.01 release
+
+{
+Scl_ResetOptions ;
+Scl_OverwriteBlocks:=           'y' ;
+Scl_GenerateReferenceData :=    'y' ;
+Scl_S7ServerActive:=            'n' ;
+Scl_CreateObjectCode:=          'y' ;
+Scl_OptimizeObjectCode:=        'y' ;
+Scl_MonitorArrayLimits:=        'n' ;
+Scl_CreateDebugInfo :=          'n' ;
+Scl_SetOKFlag:=                 'n' ;
+Scl_SetMaximumStringLength:=    '254'
+}
+ 
+FUNCTION_BLOCK FB1103
+TITLE ='TCP_COMM'
+AUTHOR : SIEMENS
+FAMILY : COMM
+NAME : TCP_COMM
+VERSION : '4.0'
+ 
+ 
+VAR_INPUT
+  ID : WORD ;   
+  DATA_TRANSFER : BOOL ;   
+  SEND_RCV : BOOL ;   
+  CONNECT_DISCONNECT : BOOL ;   
+  KEEP_ALIVE : BOOL ;   
+  ANLAUF : BOOL ;   
+  LENGTH : INT ;   
+  MONITOR : TIME ;   
+  LOGGING_LEVEL : INT ;   
+  MESSAGE_COUNT : INT ;   
+  WAIT_TIME : TIME ;   
+  CONN_DB : BLOCK_DB ;   
+END_VAR
+VAR_OUTPUT
+  CONN_ESTABLISHED : BOOL ;   
+  BUSY : BOOL ;   
+  DONE : BOOL ;   
+  ERROR : BOOL ;   
+  STATUS : WORD ;   
+  STATUS_FUNC : STRING  [8 ];   
+END_VAR
+VAR_IN_OUT
+  ENQ : BOOL ;   
+  UDT_CONN : ANY ;   
+  DATA : ANY ;   
+END_VAR
+VAR
+  TCON : FB65;   
+  TSEND : FB63;   
+  TRCV : FB64;   
+  TDISCON : FB66;   
+  TON : SFB4;   
+  TDISCON_MONITORING : TIME ;   
+  MONITOR_TIME : TIME ;   
+  Number_of_Function : INT ;   
+  Save_STATUS : WORD ;    
+  Save_ERROR : BOOL ;   
+  Save_DONE : BOOL ;   
+  MONITOR_active : BOOL ;   
+  TCON_Req : BOOL ;   
+  TSEND_Req : BOOL ;   
+  TRCV_Req : BOOL ;   
+  TDISCON_Req : BOOL ;   
+  TCON_Busy : BOOL ;   
+  TSEND_Busy : BOOL ;   
+  TRCV_Busy : BOOL ;   
+  TDISCON_Busy : BOOL ;   
+  ENQ_Save : BOOL ;   
+  OrderErrorDiscon : BOOL ;   
+  Logging_Level_Old : INT ;   
+  UDPLogger : FB99;   
+  serialnumber : DINT ;   
+  logdata : ARRAY  [1 .. 28 ] OF BYTE  := 28 (B#16#0) ;   
+END_VAR
+VAR_TEMP
+  retval : INT ;   
+  loopcounter : INT ;   
+END_VAR
+BEGIN
+BUSY:=false;
+DONE:=false;
+ERROR:=false;
+STATUS:=W#16#0;
+STATUS_FUNC:='';
+IF Logging_Level_Old<>LOGGING_LEVEL THEN
+    UDPLogger(iLogging_Level := LOGGING_LEVEL
+                     ,iConn_Data :=  CONN_DB
+                     ,iMessage_Count :=  MESSAGE_COUNT   
+                     ,iWaitTime :=  WAIT_TIME                    
+                     ,iSeverity :=  LOGGING_LEVEL
+                     ,iFacility :=  Number_of_Function
+                     ,iNew_Message :=  false
+                     );
+    Logging_Level_Old:=LOGGING_LEVEL;
+END_IF;
+IF ANLAUF THEN
+    ANLAUF:=false;
+    CONN_ESTABLISHED:=false;
+    TDISCON_MONITORING:=T#1M30S;
+    ENQ:=false;
+    ENQ_Save:=false;
+    MONITOR_active:=false;
+    TCON_Req:=false;
+    TSEND_Req:=false;
+    TRCV_Req:=false;
+    TDISCON_Req:=false;
+    TCON_Busy:=false;
+    TSEND_Busy:=false;
+    TRCV_Busy:=false;
+    TDISCON_Busy:=false;
+    Save_DONE:=false;
+    Save_ERROR:=false;
+    Save_STATUS:=W#16#0;
+    Number_of_Function:=0;
+    OrderErrorDiscon:=false;
+    TON(IN:=false);
+    TCON(REQ:=false);
+    TSEND(REQ:=false);
+    TRCV(EN_R:=false);
+    TDISCON(REQ:=false);
+ELSE
+    IF (NOT DATA_TRANSFER AND ENQ) AND     NOT CONNECT_DISCONNECT AND NOT TDISCON_Busy THEN
+        TDISCON_Req:=true;
+    END_IF;
+    IF NOT ENQ_Save AND ENQ AND NOT BUSY THEN
+        IF DATA_TRANSFER THEN
+            TSEND_Req:=SEND_RCV;
+            TRCV_Req:= NOT TSEND_Req;
+            IF MONITOR>T#0ms AND TRCV_Req THEN
+                MONITOR_active:=true;
+            END_IF;
+        ELSE
+            TCON_Req:=CONNECT_DISCONNECT;
+        END_IF;
+        MONITOR_TIME:=MONITOR;
+    END_IF;
+    ENQ_Save:=ENQ;
+    IF TCON_Req OR TCON_Busy THEN
+        TCON(REQ :=  TCON_Req
+                   ,ID :=  ID
+                   ,CONNECT := UDT_CONN
+                   );
+        TCON_Busy:=TCON.BUSY;
+        DONE:=TCON.DONE;
+        Save_ERROR:=TCON.ERROR;
+        Save_STATUS:=TCON.STATUS;
+        IF NOT TCON_Busy AND TCON_Req OR Save_STATUS=W#16#80A7 THEN
+            IF LOGGING_LEVEL=1 OR LOGGING_LEVEL=2 OR (Save_STATUS=W#16#80A7 AND LOGGING_LEVEL=3) THEN
+                UDP_MSG_BUILDER(serialnumber :=  serialnumber
+                                ,Connection_Data :=  UDT_CONN
+                                ,Status :=  TCON.STATUS
+                                ,Function_Type :=  'TCON    '
+                                ,ID := ID
+                                ,logdata :=  logdata
+                                );
+                serialnumber:=serialnumber+1;
+                UDPLogger(iLogging_Level := LOGGING_LEVEL
+                                 ,iConn_Data :=  CONN_DB
+                                 ,iMessage_Count :=  MESSAGE_COUNT   
+                                 ,iWaitTime :=  WAIT_TIME                    
+                                 ,iSeverity :=  LOGGING_LEVEL
+                                 ,iFacility :=  1
+                                 ,iMessage_Data :=  logdata
+                                 ,iNew_Message :=  true
+                                 );
+            END_IF;
+            TCON(REQ:=false);
+            IF Save_Status=W#16#80A7 THEN
+                TCON(REQ :=  true
+                           ,ID :=  ID
+                           ,CONNECT := UDT_CONN
+                           );
+                TCON_Busy:=TCON.BUSY;
+                DONE:=TCON.DONE;
+                Save_ERROR:=TCON.ERROR;
+                Save_STATUS:=TCON.STATUS;
+                IF LOGGING_LEVEL=1 OR LOGGING_LEVEL=2 OR (LOGGING_LEVEL=3 AND Save_ERROR) THEN
+                    UDP_MSG_BUILDER(serialnumber :=  serialnumber
+                                    ,Connection_Data :=  UDT_CONN
+                                    ,Status :=  TCON.STATUS
+                                    ,Function_Type :=  'TCON    '
+                                    ,ID := ID
+                                    ,logdata :=  logdata
+                                    );
+                    serialnumber:=serialnumber+1;
+                    UDPLogger(iLogging_Level := LOGGING_LEVEL
+                                     ,iConn_Data :=  CONN_DB
+                                     ,iMessage_Count :=  MESSAGE_COUNT   
+                                     ,iWaitTime :=  WAIT_TIME                    
+                                     ,iSeverity :=  LOGGING_LEVEL
+                                     ,iFacility :=  1
+                                     ,iMessage_Data :=  logdata
+                                     ,iNew_Message :=  true
+                                     );
+                   
+               
+                END_IF;
+            END_IF;
+        END_IF;
+        IF TCON_Req AND TCON_Busy THEN
+            MONITOR_active:=true;
+            IF LOGGING_LEVEL=1 OR LOGGING_LEVEL=2 THEN
+                UDP_MSG_BUILDER(serialnumber :=  serialnumber
+                                ,Connection_Data :=  UDT_CONN
+                                ,Status :=  TCON.STATUS
+                                ,Function_Type :=  'TCON    '
+                                ,ID := ID
+                                ,logdata :=  logdata
+                                );
+                serialnumber:=serialnumber+1;
+                UDPLogger(iLogging_Level := LOGGING_LEVEL
+                                 ,iConn_Data :=  CONN_DB
+                                 ,iMessage_Count :=  MESSAGE_COUNT   
+                                 ,iWaitTime :=  WAIT_TIME                     
+                                 ,iSeverity :=  LOGGING_LEVEL
+                                 ,iFacility :=  1
+                                 ,iMessage_Data :=  logdata
+                                 ,iNew_Message :=  true
+                                 );
+            END_IF;
+        END_IF;
+        TCON_Req:=false;
+        IF Save_STATUS=W#16#80A3 OR DONE THEN
+            CONN_ESTABLISHED:=true;
+            DONE:=true;
+            Save_ERROR:=false;
+            IF LOGGING_LEVEL=1 OR LOGGING_LEVEL=2 OR (Save_STATUS=W#16#80A3 AND LOGGING_LEVEL=3) THEN
+                UDP_MSG_BUILDER(serialnumber :=  serialnumber
+                                ,Connection_Data :=  UDT_CONN
+                                ,Status :=  TCON.STATUS
+                                ,Function_Type :=  'TCON    '
+                                ,ID := ID
+                                ,logdata :=  logdata
+                                );
+                serialnumber:=serialnumber+1;
+                UDPLogger(iLogging_Level := LOGGING_LEVEL
+                                 ,iConn_Data :=  CONN_DB
+                                 ,iMessage_Count :=  MESSAGE_COUNT   
+                                 ,iWaitTime :=  WAIT_TIME                    
+                                 ,iSeverity :=  LOGGING_LEVEL
+                                 ,iFacility :=  1
+                                 ,iMessage_Data :=  logdata
+                                 ,iNew_Message :=  true
+                                 );
+            END_IF;
+        ELSE
+            IF Save_ERROR THEN
+                Number_of_Function:=1;
+                CONN_ESTABLISHED:=false;
+                OrderErrorDiscon:=true;
+                TDISCON_Req:=true;
+                IF LOGGING_LEVEL>0 AND LOGGING_LEVEL<4 THEN
+                    UDP_MSG_BUILDER(serialnumber :=  serialnumber
+                                    ,Connection_Data :=  UDT_CONN
+                                    ,Status :=  TCON.STATUS
+                                    ,Function_Type :=  'TCON    '
+                                    ,ID := ID
+                                    ,logdata :=  logdata
+                                    );
+                    serialnumber:=serialnumber+1;
+                    UDPLogger(iLogging_Level := LOGGING_LEVEL
+                                     ,iConn_Data :=  CONN_DB
+                                     ,iMessage_Count :=  MESSAGE_COUNT   
+                                     ,iWaitTime :=  WAIT_TIME                    
+                                     ,iSeverity :=  LOGGING_LEVEL
+                                     ,iFacility :=  1
+                                     ,iMessage_Data :=  logdata
+                                     ,iNew_Message :=  true
+                                     );
+                END_IF;
+            END_IF;
+        END_IF;
+    END_IF;   
+    IF  TSEND_Req  OR TSEND_Busy THEN
+        TSEND(REQ :=  TSEND_Req
+                ,ID :=  ID
+                ,LEN :=  LENGTH
+                ,DATA :=  DATA
+                );
+        TSEND_Busy:=TSEND.BUSY;
+        DONE:=TSEND.DONE;
+        Save_ERROR:=TSEND.ERROR;
+        Save_STATUS:=TSEND.STATUS;
+        IF TSEND_Req THEN
+            TSEND_Req:=false;
+            IF LOGGING_LEVEL=2 OR(LOGGING_LEVEL=3 AND Save_ERROR) THEN
+                UDP_MSG_BUILDER(serialnumber :=  serialnumber
+                                ,Connection_Data :=  UDT_CONN
+                                ,Status :=  TSEND.STATUS
+                                ,Function_Type :=  'TSEND   '
+                                ,ID := ID
+                                ,logdata :=  logdata
+                                );
+                serialnumber:=serialnumber+1;
+                UDPLogger(iLogging_Level := LOGGING_LEVEL
+                                 ,iConn_Data :=  CONN_DB
+                                 ,iMessage_Count :=  MESSAGE_COUNT   
+                                 ,iWaitTime :=  WAIT_TIME                    
+                                 ,iSeverity :=  LOGGING_LEVEL
+                                 ,iFacility :=  2
+                                 ,iMessage_Data :=  logdata
+                                 ,iNew_Message :=  true
+                                 );
+            END_IF;
+            IF NOT TSEND_Busy THEN
+                TSEND(REQ :=  false);
+            END_IF;   
+        END_IF;
+        IF Save_ERROR THEN
+            MONITOR_active:=false;
+            IF Save_STATUS=W#16#80A1 OR Save_STATUS=W#16#80C4 THEN
+                Number_of_Function:=2;
+                OrderErrorDiscon:=true;
+                TDISCON_Req:=true;
+            ELSE
+                ERROR:=Save_ERROR;
+                STATUS:=Save_STATUS;
+                STATUS_FUNC:='TSEND';
+            END_IF;   
+        ELSIF DONE THEN
+            MONITOR_active:=false;
+        END_IF;   
+        IF Save_ERROR OR DONE THEN
+            IF LOGGING_LEVEL=2 OR (LOGGING_LEVEL=3 AND Save_ERROR) THEN
+                UDP_MSG_BUILDER(serialnumber :=  serialnumber
+                                ,Connection_Data :=  UDT_CONN
+                                ,Status :=  TSEND.STATUS
+                                ,Function_Type :=  'TSEND   '
+                                ,ID := ID
+                                ,logdata :=  logdata
+                                );
+                serialnumber:=serialnumber+1;
+                UDPLogger(iLogging_Level := LOGGING_LEVEL
+                                 ,iConn_Data :=  CONN_DB
+                                 ,iMessage_Count :=  MESSAGE_COUNT   
+                                 ,iWaitTime :=  WAIT_TIME                    
+                                 ,iSeverity :=  LOGGING_LEVEL
+                                 ,iFacility :=  2
+                                 ,iMessage_Data :=  logdata
+                                 ,iNew_Message :=  true
+                                 );
+            END_IF;
+        END_IF;
+    END_IF; 
+    IF TRCV_Req THEN
+        IF NOT TDISCON_Req THEN
+            TRCV(EN_R :=  TRCV_Req
+                       ,ID :=  ID
+                       ,LEN :=  LENGTH
+                       ,DATA :=  DATA
+                       );
+            DONE:=TRCV.NDR;
+            TRCV_Busy:=TRCV.BUSY;
+            IF LOGGING_LEVEL=2 THEN
+                UDP_MSG_BUILDER(serialnumber :=  serialnumber
+                                ,Connection_Data :=  UDT_CONN
+                                ,Status :=  TRCV.STATUS
+                                ,Function_Type :=  'TRCV    '
+                                ,ID := ID
+                                ,logdata :=  logdata
+                                );
+                serialnumber:=serialnumber+1;
+                UDPLogger(iLogging_Level := LOGGING_LEVEL
+                                 ,iConn_Data :=  CONN_DB
+                                 ,iMessage_Count :=  MESSAGE_COUNT   
+                                 ,iWaitTime :=  WAIT_TIME                    
+                                 ,iSeverity :=  LOGGING_LEVEL
+                                 ,iFacility :=  3
+                                 ,iMessage_Data :=  logdata
+                                 ,iNew_Message :=  true
+                                 );
+            END_IF;
+            IF TRCV.NDR OR TRCV.ERROR THEN
+                MONITOR_active:=false;
+                LENGTH:=TRCV.RCVD_LEN;
+                IF TRCV.ERROR   THEN
+                    STATUS_FUNC:='TRCV';
+                    IF TRCV.STATUS=W#16#80A1 OR TRCV.STATUS=W#16#80C4 THEN
+                        Number_of_Function:=3;
+                        Save_STATUS:=TRCV.STATUS;
+                        OrderErrorDiscon:=true;
+                        TDISCON_Req:=true;
+                    ELSE
+                        ERROR:=TRCV.ERROR;
+                        STATUS:=TRCV.STATUS;
+                    END_IF;   
+                END_IF;
+                TRCV_Req:=false;
+                IF LOGGING_LEVEL=2 OR LOGGING_LEVEL=3 AND TRCV.ERROR THEN
+                    UDP_MSG_BUILDER(serialnumber :=  serialnumber
+                                    ,Connection_Data :=  UDT_CONN
+                                    ,Status :=  TRCV.STATUS
+                                    ,Function_Type :=  'TRCV    '
+                                    ,ID := ID
+                                    ,logdata :=  logdata
+                                    );
+                    serialnumber:=serialnumber+1;
+                    UDPLogger(iLogging_Level := LOGGING_LEVEL
+                                     ,iConn_Data :=  CONN_DB
+                                     ,iMessage_Count :=  MESSAGE_COUNT   
+                                     ,iWaitTime :=  WAIT_TIME                    
+                                     ,iSeverity :=  LOGGING_LEVEL
+                                     ,iFacility :=  3
+                                     ,iMessage_Data :=  logdata
+                                     ,iNew_Message :=  true
+                                     );
+                END_IF;
+            END_IF;
+        ELSE
+            TRCV(EN_R:=false);
+        END_IF;
+    END_IF;   
+    TON(IN:=MONITOR_active,PT:=MONITOR_TIME );
+    IF  TON.Q THEN
+        MONITOR_active:=false;
+        TON(IN:=false);
+        IF TCON_Busy THEN
+            Save_STATUS:=W#16#A100;
+            TCON_Busy:=false;
+            OrderErrorDiscon:=true;
+            TDISCON_Req:=true;
+            IF LOGGING_LEVEL>0 AND LOGGING_LEVEL<4 THEN
+                UDP_MSG_BUILDER(serialnumber :=  serialnumber
+                                ,Connection_Data :=  UDT_CONN
+                                ,Status :=  Save_STATUS
+                                ,Function_Type :=  'TCON    '
+                                ,ID := ID
+                                ,logdata :=  logdata
+                                );
+                serialnumber:=serialnumber+1;
+                UDPLogger(iLogging_Level := LOGGING_LEVEL
+                                 ,iConn_Data :=  CONN_DB
+                                 ,iMessage_Count :=  MESSAGE_COUNT   
+                                 ,iWaitTime :=  WAIT_TIME                    
+                                 ,iSeverity :=  LOGGING_LEVEL
+                                 ,iFacility :=  3
+                                 ,iMessage_Data :=  logdata
+                                 ,iNew_Message :=  true
+                                 );
+            END_IF;
+        END_IF;
+        IF TRCV_Busy THEN
+            Save_STATUS:=W#16#A100;
+            TRCV_Req:=false;
+            TRCV_Busy:=false;
+            OrderErrorDiscon:=true;
+            TDISCON_Req:=true;
+            IF LOGGING_LEVEL=2 OR LOGGING_LEVEL=3 THEN
+                UDP_MSG_BUILDER(serialnumber :=  serialnumber
+                                ,Connection_Data :=  UDT_CONN
+                                ,Status :=  Save_STATUS
+                                ,Function_Type :=  'TRCV    '
+                                ,ID := ID
+                                ,logdata :=  logdata
+                                );
+                serialnumber:=serialnumber+1;
+                UDPLogger(iLogging_Level := LOGGING_LEVEL
+                                 ,iConn_Data :=  CONN_DB
+                                 ,iMessage_Count :=  MESSAGE_COUNT   
+                                 ,iWaitTime :=  WAIT_TIME                    
+                                 ,iSeverity :=  LOGGING_LEVEL
+                                 ,iFacility :=  3
+                                 ,iMessage_Data :=  logdata
+                                 ,iNew_Message :=  true
+                                 );
+ 
+            END_IF;
+        END_IF;   
+        IF TDISCON_Busy THEN
+            STATUS:=W#16#A101;
+            TDISCON_Busy:=false;
+            OrderErrorDiscon:=false;
+            IF LOGGING_LEVEL>0 AND LOGGING_LEVEL<4 THEN
+                UDP_MSG_BUILDER(serialnumber :=  serialnumber
+                                ,Connection_Data :=  UDT_CONN
+                                ,Status :=  STATUS
+                                ,Function_Type :=  'TDISCON '
+                                ,ID := ID
+                                ,logdata :=  logdata
+                                );
+                serialnumber:=serialnumber+1;
+                UDPLogger(iLogging_Level := LOGGING_LEVEL
+                                 ,iConn_Data :=  CONN_DB
+                                 ,iMessage_Count :=  MESSAGE_COUNT   
+                                 ,iWaitTime :=  WAIT_TIME                    
+                                 ,iSeverity :=  LOGGING_LEVEL
+                                 ,iFacility :=  3
+                                 ,iMessage_Data :=  logdata
+                                 ,iNew_Message :=  true
+                                 );
+            END_IF;
+        END_IF;
+    END_IF;   
+    IF TDISCON_Req OR TDISCON_Busy THEN
+        TDISCON(REQ :=  TDISCON_Req
+              ,ID :=  ID
+              );
+        TDISCON_Busy:=TDISCON.BUSY;
+        Save_DONE:=TDISCON.DONE;
+        Save_ERROR:=TDISCON.ERROR;
+        IF TDISCON_Req THEN
+            IF LOGGING_LEVEL=1 OR LOGGING_LEVEL=2 THEN
+                UDP_MSG_BUILDER(serialnumber :=  serialnumber
+                                ,Connection_Data :=  UDT_CONN
+                                ,Status :=  TDISCON.STATUS
+                                ,Function_Type :=  'TDISCON '
+                                ,ID := ID
+                                ,logdata :=  logdata
+                                );
+                serialnumber:=serialnumber+1;
+                UDPLogger(iLogging_Level := LOGGING_LEVEL
+                                 ,iConn_Data :=  CONN_DB
+                                 ,iMessage_Count :=  MESSAGE_COUNT   
+                                 ,iWaitTime :=  WAIT_TIME                    
+                                 ,iSeverity :=  LOGGING_LEVEL
+                                 ,iFacility :=  3
+                                 ,iMessage_Data :=  logdata
+                                 ,iNew_Message :=  true
+                                 );
+            END_IF;
+            IF NOT TDISCON_Busy THEN
+                IF NOT OrderErrorDiscon THEN
+                    Save_STATUS:=TDISCON.STATUS;
+                END_IF;
+                TDISCON(REQ :=  false
+                      );
+            ELSE
+                MONITOR_active:=true;
+                IF OrderErrorDiscon THEN
+                    MONITOR_TIME:=TDISCON_MONITORING;
+                END_IF;   
+            END_IF;
+            TDISCON_Req:=false;
+        END_IF;
+        IF Save_DONE OR Save_ERROR THEN
+            MONITOR_active:=false;
+            IF NOT OrderErrorDiscon THEN
+                IF Save_ERROR THEN
+                    ERROR:=true;
+                    STATUS:=Save_STATUS;
+                    STATUS_FUNC:='TDISCON';
+                ELSE
+                    DONE:=Save_DONE;
+                END_IF;
+            ELSE
+                ERROR:=true;
+                STATUS:=Save_STATUS;
+                Save_STATUS:=W#16#0;
+                IF Number_of_Function=1 THEN
+                    STATUS_FUNC:='TCON';
+                END_IF;   
+                IF Number_of_Function=2 THEN
+                    STATUS_FUNC:='TSEND';
+                END_IF;   
+                IF Number_of_Function=3 THEN
+                    STATUS_FUNC:='TRCV';
+                END_IF;
+                Number_of_Function:=0;
+            END_IF;
+            IF LOGGING_LEVEL=1 OR LOGGING_LEVEL=2 OR (LOGGING_LEVEL=3 AND TDISCON.ERROR) THEN
+                UDP_MSG_BUILDER(serialnumber :=  serialnumber
+                                ,Connection_Data :=  UDT_CONN
+                                ,Status :=  TDISCON.STATUS
+                                ,Function_Type :=  'TDISCON '
+                                ,ID := ID
+                                ,logdata :=  logdata
+                                );
+                serialnumber:=serialnumber+1;
+                UDPLogger(iLogging_Level := LOGGING_LEVEL
+                                 ,iConn_Data :=  CONN_DB
+                                 ,iMessage_Count :=  MESSAGE_COUNT   
+                                 ,iWaitTime :=  WAIT_TIME                    
+                                 ,iSeverity :=  LOGGING_LEVEL
+                                 ,iFacility :=  4
+                                 ,iMessage_Data :=  logdata
+                                 ,iNew_Message :=  true
+                                 );
+            END_IF;
+            CONN_ESTABLISHED:=false;
+            OrderErrorDiscon:=false;
+        END_IF;   
+    END_IF;
+    BUSY:=    TCON_Busy OR TSEND_Busy OR TRCV_Busy OR TDISCON_Busy;
+    IF DONE OR ERROR THEN
+        TON(IN:=false);
+        ENQ:=false;
+        ENQ_Save:=false;
+    END_IF;   
+END_IF;     
+IF LOGGING_LEVEL<>0 THEN
+    UDPLogger(iNew_Message :=  false
+                 ,iWaitTime :=  WAIT_TIME           
+                 ,iMessage_Count :=  MESSAGE_COUNT   
+                 );
+END_IF;
+ 
+IF  serialnumber>99999 THEN serialnumber:=0; END_IF;
+ 
+END_FUNCTION_BLOCK

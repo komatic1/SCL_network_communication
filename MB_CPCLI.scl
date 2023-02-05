@@ -1,0 +1,921 @@
+// Name: FB106
+// Symbolic Name: MB_CPCLI
+// Symbol Comment:
+// Family: COMM
+// Version: 2.2
+// Author: SIEMENS
+// Last modified: 06/08/2011
+// Use: SFB4,FC10,FC50,FC60,SFC20,SFC24
+// Size in work memory: 9744 bytes
+// Object name: fb 106nc
+// Signature: generiert vom SCL Übersetzer Version: SCLCOMP K05.03.05.00_01.03.00.01 release
+
+{
+Scl_ResetOptions ;
+Scl_OverwriteBlocks:=           'y' ;
+Scl_GenerateReferenceData :=    'y' ;
+Scl_S7ServerActive:=            'y' ;
+Scl_CreateObjectCode:=          'y' ;
+Scl_OptimizeObjectCode:=        'y' ;
+Scl_MonitorArrayLimits:=        'n' ;
+Scl_CreateDebugInfo :=          'n' ;
+Scl_SetOKFlag:=                 'n' ;
+Scl_SetMaximumStringLength:=    '254'
+}
+ 
+FUNCTION_BLOCK FB1106
+TITLE ='MB_CPCLI'
+//K 0.1 von V2.2
+AUTHOR : SIEMENS
+FAMILY : COMM
+NAME : MB_CPCLI
+VERSION : '2.2'
+ 
+ 
+VAR_INPUT
+  ID                : INT ;   
+  LADDR             : WORD ;   
+  IDB_NR            : BLOCK_DB ;   
+  MONITOR           : TIME ;   
+  ENQ_ENR           : BOOL ;   
+  SERVER_CLIENT     : BOOL ;   
+  SINGLE_WRITE      : BOOL ;   
+  ANLAUF            : BOOL ;   
+  DATA_AREAS        : DINT ;   
+  SEND_BUFFER       : DINT ;   
+  RECV1_BUFFER      : DINT ;   
+  RECV2_BUFFER      : DINT ;   
+  AREA_VALID        : ARRAY  [1 .. 8 ] OF BOOL ;   
+  SRCBLK_Struct     : STRUCT    
+   ANY_id           : WORD ;   
+   Length           : WORD ;   
+   DB_Number        : WORD ;   
+   Byte_Pointer     : DWORD ;   
+END_STRUCT ;
+  SRCBLK_Struct_any AT SRCBLK_Struct : ANY;
+   
+  AG_Struct         : STRUCT    
+   ANY_id           : WORD ;   
+   Length           : WORD ;   
+   DB_Number        : WORD ;   
+   Byte_Pointer     : DWORD ;   
+END_STRUCT ;
+  AG_Struct_any AT AG_Struct : ANY; 
+  DSTBLK_Struct     : STRUCT    
+   ANY_id           : WORD ;   
+   Length           : WORD ;   
+   DB_Number        : WORD ;   
+   Byte_Pointer     : DWORD ;   
+END_STRUCT ;   
+    DSTBLK_Struct_any AT DSTBLK_Struct : ANY;
+ 
+END_VAR
+VAR_OUTPUT
+  BUSY              : BOOL ;   
+  ERROR             : BOOL ;   
+  STATUS            : WORD ;   
+  STATUS_FUNC       : STRING  [8 ];   
+END_VAR
+VAR_IN_OUT
+  UNIT              : BYTE ;   
+  DATA_TYPE         : BYTE ;   
+  START_ADDRESS     : WORD ;   
+  LENGTH            : WORD ;   
+  TI                : WORD ;   
+  WRITE_READ        : BOOL ;   
+  DONE_NDR          : BOOL ;   
+END_VAR
+VAR
+  TON               : SFB4;   
+  TEST_DB : STRUCT    
+   RET_WERT         : INT ;   
+   LENGTH           : WORD ;   
+   WRITE_PROTECT    : BOOL ;   
+  END_STRUCT ;   
+  State : STRUCT    
+   Auftrag_laeuft   : BOOL ;   
+   Send             : BOOL ;   
+   Recv1            : BOOL ;   
+   Recv2            : BOOL ;   
+   Comm_Delay       : BOOL ;   
+   Auftragsmerker   : BOOL ;   
+  END_STRUCT ;   
+  AG_CNTRL : STRUCT    
+   DONE             : BOOL ;   
+   ERROR            : BOOL ;   
+   STATUS           : WORD ;   
+   RESULT1          : DWORD ;   
+   RESULT2          : DWORD ;   
+  END_STRUCT ;   
+  AG_Send_Length    : INT ;   
+  AG_Recv1_Length   : INT ;   
+  AG_Recv2_Length   : INT ;   
+  sCoil_On_Off      : BYTE ;   
+  sUNIT             : BYTE ;   
+  sFUNC_CODE        : BYTE ;   
+  sDATA_TYPE        : BYTE ;   
+  sDATEN_DB         : WORD ;   
+  sNUMBER_OF_VALUES : INT ;   
+  sDATEN_START      : DINT ;   
+  sSTART_ADDRESS    : DINT ;   
+  sTI               : WORD ;   
+  sIDB_Nr           : WORD ;   
+  sLEN_RECV2        : INT ;   
+  sMONITOR          : TIME ;   
+  sCP_DELAY_TIME    : TIME  := T#150MS;   
+  AG_Send_Done      : BOOL ;   
+  AG_Recv1_Ndr      : BOOL ;   
+  AG_Recv2_Ndr      : BOOL ;   
+  AG_Recv_wait      : BOOL ;   
+  AG_Cntrl_wait     : BOOL ;   
+  sSenden_Neustart  : BOOL ;   
+  sWRITE_READ       : BOOL ;   
+  sDisconnect       : BOOL ;   
+  sMonitor_active   : BOOL ;   
+  sENQ_ENR          : BOOL ;   
+  sFirstBit_Grenze0 : BOOL ;   
+  sLength_groesser_8 : BOOL ;   
+  slength_Multiple_8 : BOOL ;   
+  sEnde_mit_Fehler : BOOL ;   
+  sEnde_mit_Disconnect : BOOL ;   
+  tError_FC         : BOOL ;   
+  i                 : INT ;   
+  j                 : INT ;   
+  sBLKMOV_RET_VAL   : INT ;   
+  sOFFSET_DATEN     : DINT ;   
+  sStart_x          : DINT ;   
+  sEnd_x            : DINT ;   
+  sExc_BytCnt_StaAdr: DINT ;   
+  sFirst_Bit        : INT ;   
+  sFirst_Byte       : INT ;   
+  sLast_Bit         : INT ;   
+  sLast_Byte        : INT ;   
+  sByteCount_Bit    : INT ;   
+  sVariable_1       : BYTE ;   
+  sVariable_2       : BYTE ;   
+  sShift_left       : BYTE ;   
+  sShift_rigth      : BYTE ;   
+  sStatus_FC        : WORD ;   
+END_VAR
+BEGIN
+ 
+IF ANLAUF
+THEN
+    State.Auftrag_laeuft:=false;
+    State.Send:=false;
+    State.Recv1:=false;
+    State.Recv2:=false;
+    State.Comm_Delay:=false;
+    State.Auftragsmerker:=false;
+    ANLAUF:=false;
+    sENQ_ENR:=false;
+END_IF;
+BUSY:=false;
+ERROR:=false;
+DONE_NDR:=false;
+STATUS:=W#16#0;
+STATUS_FUNC:='';
+ 
+IF State.Comm_Delay
+THEN
+    TON(IN:=true,PT:=sCP_DELAY_TIME);
+    IF TON.Q
+    THEN
+        TON(IN:=false,PT:=sCP_DELAY_TIME);
+        State.Comm_Delay:=false;
+    ELSE
+ 
+        IF NOT sENQ_ENR AND ENQ_ENR
+        THEN
+            IF State.Auftragsmerker
+            THEN
+                STATUS:=W#16#A083;
+                ERROR:=true;
+            ELSE
+                State.Auftragsmerker:=true;
+                sMONITOR:=MONITOR;
+                sWRITE_READ:=WRITE_READ;
+                sUNIT:=UNIT;
+                sTI:=TI;
+                sDATA_TYPE:=DATA_TYPE;
+                sSTART_ADDRESS:=WORD_TO_DINT(START_ADDRESS);
+                sNUMBER_OF_VALUES:=WORD_TO_INT(LENGTH);
+            END_IF;
+        END_IF;   
+    END_IF;        
+END_IF;
+    
+ 
+IF NOT State.Comm_Delay
+THEN
+    DSTBLK_Struct.ANY_id:=W#16#1002;
+    SRCBLK_Struct.ANY_id:=W#16#1002;
+    AG_Struct.ANY_id:=W#16#1002;
+    AG_Struct.DB_Number:=BLOCK_DB_TO_WORD(IDB_NR);
+    sIDB_Nr:=BLOCK_DB_TO_WORD(IDB_NR);
+   
+    IF NOT sENQ_ENR AND ENQ_ENR OR State.Auftragsmerker
+    THEN
+        IF State.Auftrag_laeuft
+        THEN
+            STATUS:=W#16#A083;
+        ELSIF MONITOR<T#20MS
+        THEN
+            STATUS:=W#16#A007;
+            sEnde_mit_Fehler:=true;
+        ELSIF BYTE_TO_INT(DATA_TYPE)<1 OR BYTE_TO_INT(DATA_TYPE)>4
+        THEN
+            STATUS:=W#16#A011;
+            sEnde_mit_Fehler:=true;
+        ELSE
+            IF NOT State.Auftragsmerker
+            THEN
+                sMONITOR:=MONITOR;
+                sWRITE_READ:=WRITE_READ;
+                sUNIT:=UNIT;
+                sTI:=TI;
+                sDATA_TYPE:=DATA_TYPE;
+                sSTART_ADDRESS:= WORD_TO_DINT(START_ADDRESS);
+                sNUMBER_OF_VALUES:=WORD_TO_INT(LENGTH);
+            END_IF; 
+           
+            State.Auftragsmerker:=false;
+            sFUNC_CODE:=sDATA_TYPE;
+            sByteCount_Bit:=(sNUMBER_OF_VALUES+7)/8;
+           
+            FOR i:=1 TO 8 BY 1 DO
+                sStart_x:=WORD_TO_DINT(IDB_NR.DW[DATA_AREAS+4+(i-1)*8]);
+                sEnd_x:=WORD_TO_DINT(IDB_NR.DW[DATA_AREAS+6+(i-1)*8]);
+               
+                IF  AREA_VALID[i] AND (IDB_NR.DB[DATA_AREAS+(i-1)*8]=sDATA_TYPE)
+                THEN
+                    IF (sSTART_ADDRESS>=sStart_x) AND
+                       (sNUMBER_OF_VALUES+sSTART_ADDRESS-1<=sEnd_x)
+                    THEN
+                        sDATEN_START:=sStart_x;
+                        sDATEN_DB:=IDB_NR.DW[DATA_AREAS+2+(i-1)*8];
+ 
+                        TEST_DB.RET_WERT:=TEST_DB(DB_NUMBER :=sDATEN_DB 
+                                 ,DB_LENGTH := TEST_DB.LENGTH
+                                 ,WRITE_PROT := TEST_DB.WRITE_PROTECT
+                                 );
+                        
+                        IF TEST_DB.RET_WERT<>0
+                        THEN
+                            STATUS:=INT_TO_WORD(TEST_DB.RET_WERT);
+                            STATUS_FUNC:='TEST_DB';
+                            sEnde_mit_Fehler:=true;
+                        END_IF;
+                        EXIT;
+                    END_IF; 
+                END_IF;                                        
+                IF i=8
+                THEN
+                    STATUS:=W#16#A006;
+                    sEnde_mit_Fehler:=true;
+                END_IF;
+            END_FOR; 
+           
+           
+            IF STATUS=W#16#0
+            THEN
+                IDB_NR.DW[SEND_BUFFER]:=sTI;
+                IDB_NR.DW[SEND_BUFFER+2]:=W#16#0;
+                IDB_NR.DB[SEND_BUFFER+6]:=sUNIT;  
+                IDB_NR.DW[SEND_BUFFER+8]:=DINT_TO_WORD(sSTART_ADDRESS);  
+               
+                IF NOT  sWRITE_READ 
+                THEN
+                    IF (sNUMBER_OF_VALUES<=0)
+                       OR
+                       (sNUMBER_OF_VALUES>2000 AND (sDATA_TYPE=B#16#1 OR sDATA_TYPE=B#16#2))
+                       OR
+                       (sNUMBER_OF_VALUES>125 AND (sDATA_TYPE=B#16#3 OR sDATA_TYPE=B#16#4))
+                    THEN
+                        STATUS:=W#16#A005;
+                        sEnde_mit_Fehler:=true;  
+                    ELSE
+                        IDB_NR.DW[SEND_BUFFER+10]:=INT_TO_WORD(sNUMBER_OF_VALUES);
+                    END_IF;                                             
+                    IDB_NR.DW[SEND_BUFFER+4]:=W#16#6;
+                    IDB_NR.DB[SEND_BUFFER+7]:=sDATA_TYPE;
+                    sFUNC_CODE:=sDATA_TYPE;
+                    AG_Send_Length:=12;
+               
+                ELSE
+                    IF sDATA_TYPE=B#16#2 OR sDATA_TYPE=B#16#4
+                    THEN
+                        STATUS:=W#16#A004;
+                        sEnde_mit_Fehler:=true;
+                    ELSE  
+                        sOFFSET_DATEN:=(sSTART_ADDRESS-sDATEN_START)*2;
+                        IF  sDATA_TYPE=B#16#3
+                        THEN
+                            IF (INT_TO_DINT(sNUMBER_OF_VALUES*2)+sOFFSET_DATEN-1) >
+                                     DWORD_TO_DINT(WORD_TO_DWORD(TEST_DB.LENGTH))
+                            THEN
+                                STATUS:=W#16#A003;
+                                sEnde_mit_Fehler:=true;
+                            END_IF;
+                           
+                            IF sNUMBER_OF_VALUES<=0 OR sNUMBER_OF_VALUES>123
+                            THEN
+                                STATUS:=W#16#A005;
+                                sEnde_mit_Fehler:=true;
+                            ELSE
+                                IDB_NR.DW[SEND_BUFFER+10]:=INT_TO_WORD(sNUMBER_OF_VALUES);
+                            END_IF;
+                           
+                            IF sNUMBER_OF_VALUES=1 AND SINGLE_WRITE
+                            THEN
+                                sFUNC_CODE:=B#16#6;
+                                IDB_NR.DB[SEND_BUFFER+7]:=B#16#6;
+                                IDB_NR.DW[SEND_BUFFER+4]:=W#16#6;
+                                AG_Send_Length:=sNUMBER_OF_VALUES*2+10;
+                               
+                                IF NOT sEnde_mit_Fehler
+                                THEN
+                                    IDB_NR.DW[SEND_BUFFER+10]:=WORD_TO_BLOCK_DB(sDATEN_DB).DW[sOFFSET_DATEN];
+                                END_IF;
+                            ELSE
+                                sFUNC_CODE:=B#16#10;
+                                IDB_NR.DB[SEND_BUFFER+7]:=B#16#10;
+                                IDB_NR.DW[SEND_BUFFER+10]:=INT_TO_WORD(sNUMBER_OF_VALUES);
+                                IDB_NR.DB[SEND_BUFFER+12]:=INT_TO_BYTE(sNUMBER_OF_VALUES*2);
+                                IDB_NR.DW[SEND_BUFFER+4]:=INT_TO_WORD(sNUMBER_OF_VALUES*2+7);
+                                AG_Send_Length:=sNUMBER_OF_VALUES*2+13;
+                                IF NOT sEnde_mit_Fehler
+                                THEN
+                                    SRCBLK_Struct.Length:=INT_TO_WORD(sNUMBER_OF_VALUES*2);
+                                    SRCBLK_Struct.DB_Number:=sDATEN_DB;
+                                    SRCBLK_Struct.Byte_Pointer:=SHL(IN:=DINT_TO_DWORD(sOFFSET_DATEN),N:=3)
+                                                                AND DW#16#FFFFFF OR DW#16#84000000;
+                                    DSTBLK_Struct.Length:=SRCBLK_Struct.Length;
+                                    DSTBLK_Struct.DB_Number:=sIDB_Nr;
+                                    DSTBLK_Struct.Byte_Pointer:=SHL(IN:=DINT_TO_DWORD(SEND_BUFFER+13),N:=3)
+                                                                AND DW#16#FFFFFF OR DW#16#84000000;
+         
+                                    sBLKMOV_RET_VAL:=BLKMOV(SRCBLK :=SRCBLK_Struct_any
+                                                            ,DSTBLK :=DSTBLK_Struct_any
+                                                            );
+                                    IF sBLKMOV_RET_VAL<>0
+                                    THEN
+                                        STATUS:=INT_TO_WORD(sBLKMOV_RET_VAL);
+                                        STATUS_FUNC:='BLKMOV';
+                                        sEnde_mit_Fehler:=true;
+                                    END_IF;
+                                END_IF;
+                            END_IF;   
+                        ELSIF sDATA_TYPE=B#16#1
+                        THEN
+                            IF (sOFFSET_DATEN/2+INT_TO_DINT(sNUMBER_OF_VALUES)+7)/8 >
+                                DWORD_TO_DINT(WORD_TO_DWORD(TEST_DB.LENGTH))
+                            THEN
+                                STATUS:=W#16#A003; 
+                                sEnde_mit_Fehler:=true;
+                            END_IF;
+                            IF sNUMBER_OF_VALUES<=0 OR sNUMBER_OF_VALUES>1968
+                            THEN
+                                STATUS:=W#16#A005;
+                                sEnde_mit_Fehler:=true;
+                            END_IF;
+                           
+                            sFirst_Byte:=DINT_TO_INT(sOFFSET_DATEN/16);
+                            sFirst_Bit:=DINT_TO_INT(sOFFSET_DATEN/2 MOD 8);
+                           
+                            IF sNUMBER_OF_VALUES=1 AND SINGLE_WRITE
+                            THEN
+                                sFUNC_CODE:=B#16#5;
+                                IDB_NR.DB[SEND_BUFFER+7]:=B#16#5;
+                                IDB_NR.DW[SEND_BUFFER+4]:=B#16#6;
+                                AG_Send_Length:=12;
+                                sNUMBER_OF_VALUES:=1;
+                                sVariable_1:=SHL(IN:=B#16#1,N:=sFirst_Bit);
+                                sVariable_1:=sVariable_1 AND WORD_TO_BLOCK_DB(sDATEN_DB).DB[sFirst_Byte];
+                                IDB_NR.DB[SEND_BUFFER+11]:=B#16#0;
+                               
+                                IF sVariable_1<>B#16#0
+                                THEN
+                                    IDB_NR.DB[SEND_BUFFER+10]:=B#16#FF;
+                                ELSE
+                                    IDB_NR.DB[SEND_BUFFER+10]:=B#16#0;
+                                END_IF;
+                            ELSE
+                                sFUNC_CODE:=B#16#F;
+                                IDB_NR.DB[SEND_BUFFER+7]:=B#16#F;
+                                IDB_NR.DW[SEND_BUFFER+10]:=INT_TO_WORD(sNUMBER_OF_VALUES);
+                                IDB_NR.DB[SEND_BUFFER+12]:=INT_TO_BYTE(sByteCount_Bit);
+                                IDB_NR.DW[SEND_BUFFER+4]:=INT_TO_WORD(sByteCount_Bit+7);
+                                AG_Send_Length:=13+sByteCount_Bit;
+                                sLast_Bit:=DINT_TO_INT((sOFFSET_DATEN/2+INT_TO_DINT(sNUMBER_OF_VALUES)) MOD 8);
+                               
+                                IF sOFFSET_DATEN=0
+                                THEN
+                                    sLast_Bit:=sLast_Bit-1;
+                                END_IF;
+                                sLast_Byte:=DINT_TO_INT((sOFFSET_DATEN/2+INT_TO_DINT(sNUMBER_OF_VALUES)) / 8);
+                                slength_Multiple_8:=(sNUMBER_OF_VALUES MOD 8)=0;
+                                sFirstBit_Grenze0:=sFirst_Bit=0;
+                                IF NOT sFirstBit_Grenze0  AND NOT slength_Multiple_8
+                                THEN
+                                    IF sLast_Byte=sFirst_Byte
+                                    THEN
+                                        IDB_NR.DB[SEND_BUFFER+13]:=SHR(IN:=WORD_TO_BLOCK_DB(sDATEN_DB).DB[sFirst_Byte],N:=sFirst_Bit)
+                                        AND SHR(IN:=B#16#FF,N:=8-sNUMBER_OF_VALUES);
+                                    ELSE
+                                        FOR i:=0 TO sByteCount_Bit-1 BY 1 DO
+                                            sVariable_1:=SHR(IN:=WORD_TO_BLOCK_DB(sDATEN_DB).DB[sFirst_Byte+i],N:=sFirst_Bit);
+                                            sVariable_2:=SHL(IN:=WORD_TO_BLOCK_DB(sDATEN_DB).DB[sFirst_Byte+i+1],N:=8-sFirst_Bit)
+                                                        OR sVariable_1;
+                                            IF i=(sByteCount_Bit-1) AND (8*sByteCount_Bit)>sNUMBER_OF_VALUES
+                                            THEN
+                                                sVariable_2:=SHR(IN:=B#16#FF,N:=8*sByteCount_Bit-sNUMBER_OF_VALUES) AND sVariable_2;
+                                            END_IF;
+                                            IDB_NR.DB[SEND_BUFFER+13+i]:=sVariable_2;
+                                        END_FOR;
+                                    
+                                    
+                                    END_IF;
+                                ELSE
+                                    FOR i:=0 TO sByteCount_Bit-1 BY 1 DO
+                                        IF  i=(sByteCount_Bit-1) AND NOT slength_Multiple_8 AND sFirstBit_Grenze0
+                                        THEN 
+                                            IDB_NR.DB[SEND_BUFFER+13+i]:=WORD_TO_BLOCK_DB(sDATEN_DB).DB[sFirst_Byte+i]
+                                                                         AND
+                                                                         SHR(IN:=B#16#FF,N:=7-sLast_Bit);
+                                        ELSE
+                                            IDB_NR.DB[SEND_BUFFER+13+i]:=SHR(IN:=WORD_TO_BLOCK_DB(sDATEN_DB).DB[sFirst_Byte+i],N:=sFirst_Bit)
+                                                                         OR
+                                                                         SHL(IN:=WORD_TO_BLOCK_DB(sDATEN_DB).DB[sFirst_Byte+i+1],N:=8-sFirst_Bit);
+                                        END_IF;   
+                                    END_FOR;
+ 
+                                END_IF;
+                            END_IF;
+                        END_IF;
+                    END_IF;
+                END_IF;   
+ 
+ 
+                IF NOT sEnde_mit_Fehler
+                THEN
+                    sSenden_Neustart:=true;
+                    State.Auftrag_laeuft:=true;
+                    State.Send:=true;
+                END_IF;
+            END_IF;           
+        END_IF;       
+    END_IF;          
+    
+ 
+    IF STATUS<>W#16#A083
+    THEN
+        IF State.Auftrag_laeuft
+        THEN
+            IF State.Send
+            THEN
+                AG_Struct.Length:=W#16#104;
+                AG_Struct.Byte_Pointer:=SHL(IN:=DINT_TO_DWORD(SEND_BUFFER),N:=3) AND DW#16#FFFFFF OR DW#16#84000000;
+                AG_LSEND(ACT := sSenden_Neustart
+                       ,ID := ID
+                       ,LADDR := LADDR
+                       ,SEND := AG_Struct_any
+                       ,LEN := AG_Send_Length
+                       ,DONE := AG_Send_Done
+                       ,ERROR := tError_FC
+                       ,STATUS := sStatus_FC
+                       );
+                sSenden_Neustart:=false;
+                IF sStatus_FC<>W#16#7000 AND tError_FC
+                THEN
+                    STATUS:=sStatus_FC;
+                    STATUS_FUNC:='AG_SEND';
+                    IF WORD_TO_DINT(sStatus_FC)>=32768
+                    THEN
+                        State.Comm_Delay:=true;
+                    END_IF;
+                    sEnde_mit_Fehler:=true;
+                ELSIF AG_Send_Done
+                THEN
+                    State.Send:=false;
+                    State.Recv1:=true;
+                    TON(IN := false
+                        ,PT := sMONITOR
+                        );
+                END_IF;
+            ELSIF State.Recv1
+            THEN
+                AG_Struct.Length:=W#16#6; 
+                AG_Struct.Byte_Pointer:=SHL(IN:=DINT_TO_DWORD(RECV1_BUFFER),N:=3) AND DW#16#FFFFFF OR DW#16#84000000; 
+                AG_LRECV(ID := ID
+                         ,LADDR := LADDR
+                         ,RECV := AG_Struct_any
+                         ,NDR := AG_Recv1_Ndr
+                         ,ERROR := tError_FC
+                         ,STATUS := sStatus_FC
+                         ,LEN := AG_Recv1_Length
+                         );
+                IF tError_FC
+                THEN
+                    IF NOT AG_Recv_wait
+                    THEN
+                        AG_Recv_wait:=true;
+                        State.Comm_Delay:=true;
+                    ELSE
+                        AG_Recv_wait:=false;
+                        STATUS:=sStatus_FC;
+                        STATUS_FUNC:='AG_RECV';
+                        State.Comm_Delay:=true;
+                        sEnde_mit_Disconnect:=true;
+                    END_IF;
+                ELSE
+                    IF NOT AG_Recv1_Ndr
+                    THEN
+                        TON(IN :=true 
+                           ,PT :=sMONITOR 
+                            );
+                        IF TON.Q
+                        THEN
+                            STATUS:=W#16#A008;
+                            sEnde_mit_Disconnect:=true;
+                        END_IF;
+                    ELSE
+                        AG_Recv_wait:=false;
+                        IF AG_Recv1_Length <> 0
+                        THEN
+                            IF AG_Recv1_Length <> 6
+                            THEN
+                                STATUS:=W#16#A01E;
+                                sEnde_mit_Disconnect:=true;
+                            END_IF;
+                        END_IF;
+                    END_IF;
+                END_IF;
+                IF NOT sEnde_mit_Fehler AND AG_Recv1_Ndr
+                THEN
+                    sLEN_RECV2:=WORD_TO_INT(IDB_NR.DW[RECV1_BUFFER+4]);
+                    IF IDB_NR.DW[RECV1_BUFFER]<>sTI
+                    THEN
+                        STATUS:=W#16#A009;
+                        sEnde_mit_Disconnect:=true;
+                    ELSIF IDB_NR.DW[RECV1_BUFFER+2]<>W#16#0
+                    THEN
+                        STATUS:=W#16#A00F;
+                        sEnde_mit_Disconnect:=true;
+                    ELSIF sLEN_RECV2<3 OR sLEN_RECV2>253
+                    THEN
+                        STATUS:=W#16#A01A;
+                        sEnde_mit_Disconnect:=true;
+                    ELSE
+                        State.Recv1:=false;
+                        State.Recv2:=true;
+                    END_IF;
+                END_IF;
+            END_IF;
+            IF State.Recv2
+            THEN
+                AG_Struct.Length:=INT_TO_WORD(sLEN_RECV2);
+                AG_Struct.Byte_Pointer:=SHL(IN:=DINT_TO_DWORD(RECV2_BUFFER),N:=3) AND DW#16#FFFFFF OR DW#16#84000000;    
+                AG_LRECV(ID := ID
+                         ,LADDR := LADDR
+                         ,RECV := AG_Struct_any
+                         ,NDR := AG_Recv2_Ndr
+                         ,ERROR := tError_FC
+                         ,STATUS := sStatus_FC
+                         ,LEN := AG_Recv2_Length
+                         );
+                IF tError_FC
+                THEN
+                    IF NOT AG_Recv_wait
+                    THEN
+                        AG_Recv_wait:=true;
+                        State.Comm_Delay:=true;
+                    ELSE
+                        AG_Recv_wait:=false;
+                        STATUS:=sStatus_FC;
+                        STATUS_FUNC:='AG_RECV';
+                        State.Comm_Delay:=true;
+                        sEnde_mit_Disconnect:=true;
+                    END_IF;
+                ELSE
+                    IF NOT AG_Recv2_Ndr
+                    THEN
+                        TON(IN := true
+                           ,PT := sMONITOR
+                            );
+                        IF TON.Q
+                        THEN
+                            STATUS:=W#16#A008;
+                            sEnde_mit_Disconnect:=true;
+                        END_IF;
+                    ELSE
+                        AG_Recv_wait:=false;
+                        TON(IN := false
+                           ,PT := sMONITOR
+                           );
+                        IF AG_Recv2_Length<>0
+                        THEN
+                            IF sWRITE_READ
+                            THEN
+                                sExc_BytCnt_StaAdr:=WORD_TO_DINT(IDB_NR.DW[RECV2_BUFFER+2]);
+                            ELSE
+                                sExc_BytCnt_StaAdr:=WORD_TO_DINT(BYTE_TO_WORD(IDB_NR.DB[RECV2_BUFFER+2]));
+                            END_IF;
+                           
+                            IF IDB_NR.DB[RECV2_BUFFER]<>sUNIT
+                            THEN
+                                STATUS:=W#16#A00A;
+                            ELSIF IDB_NR.DB[RECV2_BUFFER+1]<>sFUNC_CODE
+                            THEN
+                                IF sFUNC_CODE=(IDB_NR.DB[RECV2_BUFFER+1] AND W#16#7F)
+                                THEN
+                                    IF sLEN_RECV2<>3
+                                    THEN
+                                        STATUS:=W#16#A00E;
+                                    ELSE
+                                        sExc_BytCnt_StaAdr:=WORD_TO_DINT(BYTE_TO_WORD(IDB_NR.DB[RECV2_BUFFER+2]));
+                                        sEnde_mit_Fehler:=true;
+                                        IF sExc_BytCnt_StaAdr=1
+                                        THEN
+                                            STATUS:=W#16#A091;
+                                        ELSIF sExc_BytCnt_StaAdr=2
+                                        THEN
+                                            STATUS:=W#16#A092;
+                                        ELSIF sExc_BytCnt_StaAdr=3
+                                        THEN
+                                            STATUS:=W#16#A093;
+                                        ELSIF sExc_BytCnt_StaAdr=4
+                                        THEN
+                                            STATUS:=W#16#A094;
+                                        ELSE
+                                            STATUS:=W#16#A095;
+                                        END_IF;
+                                    END_IF;
+                                ELSE    
+                                    STATUS:=W#16#A00B;   
+                                END_IF;   
+                               
+                            ELSIF sWRITE_READ
+                            THEN
+                                IF sLEN_RECV2<>6
+                                THEN
+                                    STATUS:=W#16#A00E;
+                                ELSIF sSTART_ADDRESS<>sExc_BytCnt_StaAdr
+                                THEN
+                                    STATUS:=W#16#A00D;
+                                ELSIF (sFUNC_CODE=B#16#10 OR sFUNC_CODE=B#16#F)
+                                       AND
+                                      (sNUMBER_OF_VALUES<>WORD_TO_INT(IDB_NR.DW[RECV2_BUFFER+4]))
+                                THEN
+                                    STATUS:=W#16#A00C;
+                               
+                                ELSIF (sFUNC_CODE=B#16#5)
+                                      AND
+                                      (IDB_NR.DB[SEND_BUFFER+10]<>IDB_NR.DB[RECV2_BUFFER+4])
+                                      OR
+                                      (sFUNC_CODE=B#16#5 AND IDB_NR.DB[RECV2_BUFFER+5]<>B#16#0)
+                                THEN
+                                    STATUS:=W#16#A081;
+                                    sEnde_mit_Fehler:=true;
+                               
+                                ELSIF sFUNC_CODE=B#16#6
+                                      AND
+                                      IDB_NR.DW[RECV2_BUFFER+4]<>IDB_NR.DW[SEND_BUFFER+10]
+                                THEN
+                                    STATUS:=W#16#A082;
+                                    sEnde_mit_Fehler:=true;
+                                ELSE
+                                    State.Recv2:=false;
+                                    State.Auftrag_laeuft:=false;
+                                    DONE_NDR:=true;  
+                                END_IF;
+                            ELSIF sFUNC_CODE=B#16#3 OR sFUNC_CODE=B#16#4
+                            THEN
+                                IF sNUMBER_OF_VALUES*2<>sExc_BytCnt_StaAdr
+                                THEN
+                                    STATUS:=W#16#A00C;
+                               
+                                ELSIF (sNUMBER_OF_VALUES*2+3)<>sLEN_RECV2
+                                THEN
+                                    STATUS:=W#16#A00E;
+                                
+                                ELSIF ((sLEN_RECV2-3)+(sSTART_ADDRESS-sDATEN_START)*2)
+                                      >
+                                      WORD_TO_DINT(TEST_DB.LENGTH)
+                                THEN
+                                    STATUS:=W#16#A003;
+                                    sEnde_mit_Fehler:=true;
+                               
+                                ELSE
+                                    SRCBLK_Struct.Length:=INT_TO_WORD(sNUMBER_OF_VALUES*2);
+                                    SRCBLK_Struct.DB_Number:=sIDB_Nr;
+                                    SRCBLK_Struct.Byte_Pointer:=SHL(IN:=DINT_TO_DWORD(RECV2_BUFFER+3),N:=3)
+                                                                AND DW#16#FFFFFF OR DW#16#84000000;          
+                                    DSTBLK_Struct.Length:=SRCBLK_Struct.Length;
+                                    DSTBLK_Struct.DB_Number:=sDATEN_DB;
+                                    DSTBLK_Struct.Byte_Pointer:=SHL(IN:=DINT_TO_DWORD((sSTART_ADDRESS-sDATEN_START)*2),N:=3)
+                                                                AND DW#16#FFFFFF OR DW#16#84000000;
+                                    sBLKMOV_RET_VAL:=BLKMOV(SRCBLK := SRCBLK_Struct_any
+                                                           ,DSTBLK := DSTBLK_Struct_any
+                                                            );
+                                    IF sBLKMOV_RET_VAL<>0
+                                    THEN
+                                        STATUS:=INT_TO_WORD(sBLKMOV_RET_VAL);
+                                        STATUS_FUNC:='BLKMOV';
+                                        sEnde_mit_Fehler:=true;
+                                    ELSE
+                                        State.Recv2:=false;
+                                        State.Auftrag_laeuft:=false;
+                                        DONE_NDR:=true;
+                                    END_IF;
+                                END_IF;
+                       
+                            ELSIF sFUNC_CODE=B#16#1 OR sFUNC_CODE=B#16#2 
+                            THEN
+                                sOFFSET_DATEN:=sSTART_ADDRESS-sDATEN_START;
+                               
+                                IF sByteCount_Bit<>sExc_BytCnt_StaAdr
+                                THEN
+                                    STATUS:=W#16#A00C;
+                                   
+                                ELSIF (sByteCount_Bit+3)<>sLEN_RECV2
+                                THEN
+                                    STATUS:=W#16#A00E;
+                                   
+                                ELSIF ((sLEN_RECV2-3)+((sOFFSET_DATEN+7)/8))
+                                      >
+                                      WORD_TO_DINT(TEST_DB.LENGTH)   
+                                THEN
+                                    STATUS:=W#16#A003;
+                                    sEnde_mit_Fehler:=true;
+                                ELSE
+                                    sFirst_Byte:=DINT_TO_INT(sOFFSET_DATEN/8);
+                                    sFirst_Bit:=DINT_TO_INT(sOFFSET_DATEN MOD 8);
+                                    sLast_Byte:=DINT_TO_INT((sNUMBER_OF_VALUES+sOFFSET_DATEN-1)/8);
+                                    sLast_Bit:=DINT_TO_INT((sNUMBER_OF_VALUES+sOFFSET_DATEN) MOD 8);
+                                    IF sLast_Bit=0
+                                    THEN
+                                        sShift_rigth:=B#16#FF;
+                                        sShift_left:=B#16#0;
+                                    ELSE
+                                        sShift_rigth:=SHR(IN:=B#16#FF,N:=8-sLast_Bit);
+                                        sShift_left:=SHL(IN:=B#16#FF,N:=sLast_Bit);
+                                    END_IF;
+                                   
+                                    IF sFirst_Bit=0
+                                    THEN
+                                        j:=0;
+                                        FOR i:=sFirst_Byte TO sLast_Byte BY 1 DO
+                                            IF i=sLast_Byte OR sFirst_Byte=sLast_Byte
+                                            THEN
+                                                WORD_TO_BLOCK_DB(sDATEN_DB).DB[i]:=(sShift_left AND WORD_TO_BLOCK_DB(sDATEN_DB).DB[i])
+                                                                                   OR
+                                                                                   (sShift_rigth AND IDB_NR.DB[RECV2_BUFFER+3+j]);
+                                                EXIT;
+                                            END_IF;
+                                            WORD_TO_BLOCK_DB(sDATEN_DB).DB[i]:=IDB_NR.DB[RECV2_BUFFER+3+j];
+                                            j:=j+1;
+                                        END_FOR;
+                                    ELSE
+ 
+                                        sVariable_1:=SHL(IN:=IDB_NR.DB[RECV2_BUFFER+3],N:=sFirst_Bit)
+                                                        OR
+                                                    (SHR(IN:=B#16#FF,N:=8-sFirst_Bit) AND WORD_TO_BLOCK_DB(sDATEN_DB).DB[sFirst_Byte]);
+ 
+                                        IF sLast_Byte=sFirst_Byte
+                                        THEN
+                                            WORD_TO_BLOCK_DB(sDATEN_DB).DB[sFirst_Byte]:=
+                                            (sVariable_1 AND sShift_rigth)
+                                            OR
+                                            (WORD_TO_BLOCK_DB(sDATEN_DB).DB[sFirst_Byte] AND sShift_left);
+                                            
+                                        ELSE        
+                                            WORD_TO_BLOCK_DB(sDATEN_DB).DB[sFirst_Byte]:=sVariable_1;
+                                            FOR i:=1  TO sLast_Byte-sFirst_Byte BY 1 DO
+                                                sVariable_1:=SHR(IN:=IDB_NR.DB[INT_TO_DINT(i)+2+RECV2_BUFFER],N:=(8-sFirst_Bit));
+                                                IF i=(sLast_Byte-sFirst_Byte)
+                                                THEN
+                                                    IF sNUMBER_OF_VALUES>=8
+                                                    THEN
+                                                        sLength_groesser_8:=true;
+                                                    ELSE
+                                                        sLength_groesser_8:=false;
+                                                        IF sLast_Bit=0
+                                                        THEN
+                                                            sShift_rigth:=SHR(IN:=B#16#FF,N:=8-(sLast_Bit+1));
+                                                            sShift_left:=SHL(IN:=B#16#FF,N:=sLast_Bit+1);
+                                                        END_IF;
+                                                       
+                                                        WORD_TO_BLOCK_DB(sDATEN_DB).DB[sFirst_Byte+i]:=
+                                                        (WORD_TO_BLOCK_DB(sDATEN_DB).DB[sFirst_Byte+i]
+                                                        AND sShift_left) OR
+                                                        (sShift_rigth AND sVariable_1);
+                                                        EXIT;
+                                                    END_IF;
+ 
+                                                ELSE   
+                                                    sLength_groesser_8:=false;
+                                                END_IF;
+                                               
+                                                sVariable_1:=SHL(IN:=IDB_NR.DB[RECV2_BUFFER+3+i],N:=sFirst_Bit) OR sVariable_1;
+                                                
+                                                IF sLength_groesser_8
+                                                THEN
+                                                    WORD_TO_BLOCK_DB(sDATEN_DB).DB[sFirst_Byte+i]:=
+                                                    (WORD_TO_BLOCK_DB(sDATEN_DB).DB[sFirst_Byte+i]
+                                                    AND sShift_left) OR
+                                                    (sVariable_1 AND sShift_rigth);
+                                                ELSE
+                                                    WORD_TO_BLOCK_DB(sDATEN_DB).DB[sFirst_Byte+i]:=sVariable_1;
+                                                END_IF;
+                                            END_FOR;
+                                        END_IF;
+                                    END_IF;
+                                       
+                                    State.Recv2:=false;
+                                    State.Auftrag_laeuft:=false;
+                                    DONE_NDR:=true;
+                                END_IF;   
+                            END_IF;
+                        END_IF;
+                        IF STATUS<>W#16#0 AND NOT sEnde_mit_Fehler
+                        THEN
+                            sEnde_mit_Disconnect:=true;
+                        END_IF;
+                    END_IF;
+                END_IF;
+            END_IF;
+        END_IF;
+ 
+        IF NOT State.Send AND NOT State.Recv1 AND NOT State.Recv2 AND State.Auftrag_laeuft AND NOT sEnde_mit_Fehler
+        THEN
+            sEnde_mit_Fehler:=true;
+            STATUS:=W#16#A01F;
+        END_IF;
+    END_IF;
+       
+    IF sEnde_mit_Fehler
+    THEN
+        sEnde_mit_Fehler:=false;
+        State.Send:=false;
+        State.Recv1:=false;
+        State.Recv2:=false;
+        State.Auftrag_laeuft:=false;
+        State.Auftragsmerker:=false;
+        TON(IN := false,PT := sMONITOR);
+        ERROR:=true;
+    END_IF;
+   
+    IF sEnde_mit_Disconnect
+    THEN
+        State.Auftrag_laeuft:=false;
+        State.Send:=false;
+        State.Recv1:=false;
+        State.Recv2:=false;
+        State.Auftragsmerker:=false;
+       
+        AG_CNTRL(ACT :=  true
+               ,ID := ID
+               ,LADDR := LADDR
+               ,CMD := 2
+               ,DONE := AG_CNTRL.DONE
+               ,ERROR := AG_CNTRL.ERROR
+               ,STATUS := AG_CNTRL.STATUS
+               ,RESULT1 := AG_CNTRL.RESULT1
+               ,RESULT2 := AG_CNTRL.RESULT2
+               );
+ 
+           
+       
+        IF AG_CNTRL.ERROR
+        THEN
+            IF NOT AG_Cntrl_wait 
+            THEN
+                AG_Cntrl_wait:=true;   
+                State.Comm_Delay:=true;
+            ELSE
+                AG_Cntrl_wait:=false;
+                STATUS:=AG_CNTRL.STATUS;
+                STATUS_FUNC:='AG_CNTRL';
+            END_IF;
+        END_IF;
+        IF (NOT AG_Cntrl_wait AND AG_CNTRL.ERROR) OR AG_CNTRL.DONE
+        THEN
+            TON(IN := false,PT := sMONITOR );
+            ERROR:=true;
+            AG_Cntrl_wait:=false;
+            sEnde_mit_Disconnect:=false;
+        END_IF;
+    END_IF;
+END_IF;
+sENQ_ENR:=ENQ_ENR;
+BUSY:=State.Auftrag_laeuft;
+ 
+IF WORD_TO_DINT(STATUS)>=40960 
+THEN
+    STATUS_FUNC:='MODBUSCP'; 
+    ERROR:=true;
+END_IF;
+ 
+ 
+END_FUNCTION_BLOCK

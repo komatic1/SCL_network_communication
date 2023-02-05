@@ -1,0 +1,738 @@
+// Name: FB102
+// Symbolic Name: MODBUSPN
+// Symbol Comment: MODBUS PN CPU
+// Family: COMM
+// Version: 3.7
+// Author: SIEMENS
+// Last modified: 11/26/2013
+// Use: FB104,FB105,SFC20,SFC24,SFC51,SFC52,SFC6
+// Size: 8074 bytes
+// Signature: generiert vom SCL Übersetzer Version: SCLCOMP K05.03.06.00_01.03.00.01 release
+
+
+{
+Scl_ResetOptions ;
+Scl_OverwriteBlocks:=           'y' ;
+Scl_GenerateReferenceData :=    'y' ;
+Scl_S7ServerActive:=            'n' ;
+Scl_CreateObjectCode:=          'y' ;
+Scl_OptimizeObjectCode:=        'y' ;
+Scl_MonitorArrayLimits:=        'n' ;
+Scl_CreateDebugInfo :=          'n' ;
+Scl_SetOKFlag:=                 'n' ;
+Scl_SetMaximumStringLength:=    '254'
+}
+ 
+FUNCTION_BLOCK FB1102
+TITLE ='MODBUSPN'
+//FB102 MODBUSPN
+{ S7_tasklist := 'OB100' }
+AUTHOR : SIEMENS
+FAMILY : COMM
+NAME : MODBUSPN
+VERSION : '3.7'
+ 
+ 
+VAR_INPUT
+  ID : WORD ;    //connection id
+  DB_PARAM : BLOCK_DB ;    //db number of the paramter block
+  RECV_TIME : TIME ;    //delay time for data receiving
+  CONN_TIME : TIME ;    //delay time for connection establishment
+  KEEP_ALIVE : TIME ;    //not used             
+  ENQ_ENR : BOOL ;    //TRUE: client: request telegramm, server: enable for receive
+  DISCONNECT : BOOL ;    //TRUE: connection is disconnected after respond
+  REG_KEY : STRING  [17 ] := '                 ';    //registration key
+  REG_KEY_b AT REG_KEY :
+  STRUCT
+            length: BYTE;
+            act_length: BYTE;
+            str: ARRAY [0..15] OF BYTE;
+  END_STRUCT;
+ 
+  END_VAR
+VAR_OUTPUT
+  LICENSED : BOOL ;    //TRUE: block is licensed
+  BUSY : BOOL ;    //block is running
+  CONN_ESTABLISHED : BOOL ;    //TRUE: connection is established
+  DONE_NDR : BOOL ;    //order is ready without error
+  ERROR : BOOL ;    //order is ready with error
+  STATUS_MODBUS : WORD ;    //error number of modbus block
+  STATUS_CONN : WORD ;    //error number of connection
+  STATUS_FUNC : STRING  [8 ];    //name of the function, which caused the error 
+  STATUS_FUNC_b AT STATUS_FUNC : ARRAY [0..1] OF BYTE ;
+  IDENT_CODE : STRING  [18 ];    //CPU IDENT_CODE   
+END_VAR
+VAR_IN_OUT
+  UNIT : BYTE ;    //unit number
+  DATA_TYPE : BYTE ;    //datatype 1:Coils, 2:Inputs, 3:Holding Registers, 3:Input Registers
+  START_ADDRESS : WORD ;    //start address of the telegram
+  LENGTH : WORD ;    //length of the telegram
+  TI : WORD ;    //transaction identifier
+  WRITE_READ : BOOL ;    //TRUE: write, FALSE: read
+END_VAR
+VAR
+  TEST_DB : STRUCT    
+   RET_WERT : INT ;   
+   LENGTH : WORD ;   
+   WRITE_PROTECT : BOOL ;   
+  END_STRUCT ;   
+  MOD_CLI : FB104;   
+  MOD_SERV : FB105;   
+  TON : SFB4;   
+  sID : WORD ;   
+  sWDB_PARAM : WORD ;   
+  sData_area : ARRAY  [1 .. 8 ] OF STRUCT    
+   data_type : BYTE ;   
+   db_no : WORD ;   
+   start : WORD ;   
+   end : WORD ;   
+  END_STRUCT ;   
+  sSTATUS_TEMP : WORD ;   
+  sSTATUS_WR_USMSG : WORD ;   
+  sSTATUS_TIMER : WORD ;   
+  sSTATUS_FUNC : STRING  [8 ];   
+  sSTATUS_CODE : STRING  [17 ];   
+  sSTATUS_CODE_b AT sSTATUS_CODE :
+    STRUCT
+            length: BYTE;
+            act_length: BYTE;
+            str: ARRAY [0..15] OF BYTE;
+    END_STRUCT;
+  sDATA_AREAS : DINT ;   
+  sOFFSET_PARAM : DINT ;   
+  sCONN_TIME : TIME ;   
+  sPTR_SEND_BUFFER : DINT ;   
+  sPTR_RECV1_BUFFER : DINT ;   
+  sPTR_RECV2_BUFFER : DINT ;   
+  sIDB_Nr : WORD ;   
+  sSERVER_CLIENT : BOOL ;   
+  sSINGLE_WRITE : BOOL ;   
+  sC_AT_STARTUP : BOOL ;   
+  Restart_Error : BOOL ;   
+  sID_GEFUNDEN : BOOL ;   
+  old_Init_Start : BOOL ;   
+  Init_Start : BOOL ;   
+  Init_Error : BOOL ;   
+  Init_Status : WORD ;   
+  TELEGRAM_IN_PROCESS : BOOL ;   
+  LicErr_first_time : BOOL ;   
+  Compare_License : BOOL ;   
+  Conn_First_Ok : BOOL ;   
+  sAREA_VALID : ARRAY  [1 .. 8 ] OF BOOL ;
+  sAREA_1 : ARRAY  [1 .. 2 ] OF CHAR  := 'M', 'O';   
+  sAREA_2 : ARRAY  [1 .. 4 ] OF CHAR  := 'D', 'B', 'U', 'S';   
+  Start_x : DINT ;   
+  End_x : DINT ;   
+  Start_y : DINT ;   
+  End_y : DINT ;   
+  tDBLength_650 : INT ;   
+  i : INT ;   
+  j : INT ;   
+  pos : INT ;   
+  reg : INT ;   
+  address : DINT ;   
+  snd_time : BYTE ;   
+  rcv_time : BYTE ;   
+  H_STATION : BYTE ;   
+  H_STATION_TIME : TIME ;   
+  sACODE : ARRAY  [0 .. 17 ] OF BYTE ;   
+  RD_SINFO : STRUCT    
+   RET_WERT : INT ;   
+   TOP_SI : STRUCT    
+    EV_CLASS : BYTE ;   
+    EV_NUM : BYTE ;   
+    PRIORITY : BYTE ;   
+    NUM : BYTE ;   
+    TYP2_3 : BYTE ;   
+    TYP1 : BYTE ;   
+    ZI1 : WORD ;   
+    ZI2_3 : DWORD ;   
+   END_STRUCT ;   
+   START_UP_SI : STRUCT    
+    EV_CLASS : BYTE ;   
+    EV_NUM : BYTE ;   
+    PRIORITY : BYTE ;   
+    NUM : BYTE ;   
+    TYP2_3 : BYTE ;   
+    TYP1 : BYTE ;   
+    ZI1 : WORD ;   
+    ZI2_3 : DWORD ;   
+   END_STRUCT ;   
+  END_STRUCT ;   
+  RDSYSST : STRUCT    
+   RET_WERT : INT ;   
+   REQ : BOOL ;   
+   BUSY : BOOL ;   
+   SZL_HEADER : STRUCT    
+    LENTHDR : WORD ;   
+    N_DR : WORD ;   
+   END_STRUCT ;   
+   SZL_11C_5 : STRUCT    
+    index : WORD ;   
+    serialn : ARRAY  [0 .. 23 ] OF CHAR ;   
+    res : ARRAY  [1 .. 4 ] OF WORD ;   
+   END_STRUCT ;   
+  END_STRUCT ;   
+  CPU_DATA : STRUCT    
+   Index : WORD ;   
+   CPUIdent : ARRAY  [1 .. 20 ] OF BYTE ;   
+   Reserved : WORD ;   
+   MajorVersion : WORD ;   
+   MinorVersion_1 : BYTE ;   
+   MinorVersion_2 : BYTE ;   
+  END_STRUCT ;   
+  sHoldingRegisterState : ARRAY  [0 .. 24 ] OF BYTE ;   
+END_VAR
+VAR_TEMP
+  tSProductID : STRING  [19 ];   
+  tSProductID_b AT tSProductID : STRUCT
+    length      : BYTE;
+    act_length  : BYTE;
+    str : ARRAY [0..17] OF BYTE;
+    END_STRUCT;
+ 
+  tALicenseKey : ARRAY  [0 .. 17 ] OF BYTE ;   
+  Data_Area : ARRAY  [0 .. 17 ] OF BYTE ;   
+  Data_Area_dw AT Data_Area : ARRAY  [0 .. 3 ] OF DINT ;
+  Address_Struct : STRUCT    
+   ANY_id : WORD ;   
+   Length : WORD ;   
+   DB_Number : WORD ;   
+   Byte_Pointer : DWORD ;   
+  END_STRUCT ;   
+  Address_Struct_any AT Address_Struct : ANY ;
+END_VAR
+BEGIN
+RD_SINFO.RET_WERT := RD_SINFO(TOP_SI:=RD_SINFO.TOP_SI,  START_UP_SI:=RD_SINFO.START_UP_SI);
+ 
+IF NOT old_Init_Start AND Init_Start THEN
+    IF TELEGRAM_IN_PROCESS THEN
+        Init_Error:=true;
+        Init_Status:=W#16#A083;
+    ELSE
+        RD_SINFO.TOP_SI.NUM:=B#16#64;
+    END_IF;
+END_IF;
+ 
+Data_Area_dw[2]:=1162429013;   
+ 
+Conn_First_Ok:=CONN_ESTABLISHED OR Conn_First_Ok;
+ 
+IF RD_SINFO.RET_WERT <> 0
+THEN
+    ERROR:=true;
+    STATUS_MODBUS:=INT_TO_WORD(RD_SINFO.RET_WERT);
+    sSTATUS_FUNC:='RD_SINFO';
+ELSIF RD_SINFO.TOP_SI.NUM=1 OR (BYTE_TO_INT(RD_SINFO.TOP_SI.NUM) >= 30 AND BYTE_TO_INT(RD_SINFO.TOP_SI.NUM) <= 38)
+// call in cyclic OB (normal work)
+THEN
+    BUSY:=false;
+    DONE_NDR:=false;
+    ERROR:=false;
+    CONN_ESTABLISHED:=false;
+    STATUS_MODBUS:=W#16#0;
+    STATUS_CONN:=W#16#0;
+    STATUS_FUNC:='        ';
+    STATUS_FUNC_b[1]:=B#16#0;
+    Data_Area_dw[1]:=Data_Area_dw[2]+268243188;
+   
+    IF sSERVER_CLIENT THEN
+        UNIT:=B#16#0;
+        DATA_TYPE:=B#16#0;
+        START_ADDRESS:=W#16#0;
+        LENGTH:=W#16#0;
+        TI:=W#16#0;
+        WRITE_READ:=false;
+    END_IF;   
+    Address_Struct_any:=sIDB_Nr;
+    IF sIDB_Nr <> Address_Struct.DB_Number OR Restart_Error
+    THEN
+        ERROR:=true;
+        IF Restart_Error
+        THEN
+            STATUS_FUNC:=sSTATUS_FUNC;
+            STATUS_MODBUS:=sSTATUS_TEMP;
+        ELSE
+            STATUS_MODBUS:=W#16#A080;  // Different instance DBs were used for the call of MODBUSCP in OB100 and the cyclic OB.
+        END_IF;
+        Data_Area_dw[0]:=1598117697;
+    ELSE
+        IF NOT sSERVER_CLIENT
+        THEN
+            // call client
+            MOD_CLI(ID :=  sID
+                    ,DB_PARAM :=  DB_PARAM
+                    ,WDB_PARAM :=  sWDB_PARAM
+                    ,RECV_TIME :=  RECV_TIME
+                    ,CONN_TIME :=  CONN_TIME
+                    ,sC_AT_STARTUP := NOT Conn_First_Ok AND sC_AT_STARTUP AND NOT MOD_CLI.BUSY
+                    ,ENQ :=  ENQ_ENR
+                    ,DISCONNECT :=  DISCONNECT
+                    ,ANLAUF :=  NOT Conn_First_Ok AND sC_AT_STARTUP AND NOT MOD_CLI.BUSY
+                    ,SINGLE_WRITE :=  sSINGLE_WRITE
+                    ,OFFSET_PARAM :=  sOFFSET_PARAM
+                    ,DATA_AREAS :=  sDATA_AREAS
+                    ,PTR_SEND_BUFFER :=  sPTR_SEND_BUFFER
+                    ,PTR_RECV1_BUFFER :=  sPTR_RECV1_BUFFER
+                    ,PTR_RECV2_BUFFER :=  sPTR_RECV2_BUFFER
+                    ,AREA_VALID :=  sAREA_VALID
+                    ,UNIT :=  UNIT
+                    ,DATA_TYPE :=  DATA_TYPE
+                    ,START_ADDRESS :=  START_ADDRESS
+                    ,LENGTH :=  LENGTH
+                    ,TI :=  TI
+                    ,WRITE_READ :=  WRITE_READ
+                    );
+                    DONE_NDR           := MOD_CLI.DONE;
+                    BUSY               := MOD_CLI.BUSY;
+                    CONN_ESTABLISHED   := MOD_CLI.CONN_ESTABLISHED;
+                    ERROR              := MOD_CLI.ERROR;
+                    STATUS_MODBUS      := MOD_CLI.STATUS_MODBUS;
+                    STATUS_CONN      := MOD_CLI.STATUS_CONN;
+                    STATUS_FUNC        := MOD_CLI.STATUS_FUNC;
+                    
+                    TELEGRAM_IN_PROCESS:= MOD_CLI.STATE.Order_running;
+        ELSE
+            // call server
+            MOD_SERV(ID :=  sID
+                ,DB_PARAM :=  DB_PARAM
+                ,WDB_PARAM :=  sWDB_PARAM
+                ,RECV_TIME :=  RECV_TIME
+                ,CONN_TIME :=  CONN_TIME
+                ,sC_AT_STARTUP :=  NOT Conn_First_Ok AND sC_AT_STARTUP
+                ,ENR :=  ENQ_ENR
+                ,DISCONNECT :=  DISCONNECT
+                ,CONN_FIRST_OK :=  Conn_First_Ok
+                ,OFFSET_PARAM :=  sOFFSET_PARAM
+                ,DATA_AREAS :=  sDATA_AREAS
+                ,PTR_SEND_BUFFER :=  sPTR_SEND_BUFFER
+                ,PTR_RECV1_BUFFER :=  sPTR_RECV1_BUFFER
+                ,PTR_RECV2_BUFFER :=  sPTR_RECV2_BUFFER
+                );
+                UNIT               := MOD_SERV.UNIT;
+                DATA_TYPE          := MOD_SERV.DATA_TYPE;
+                START_ADDRESS      := MOD_SERV.START_ADDRESS;
+                LENGTH             := MOD_SERV.LENGTH;
+                TI                 := MOD_SERV.TI;
+                WRITE_READ         := MOD_SERV.WRITE_READ;
+                DONE_NDR           := MOD_SERV.NDR;
+                BUSY               := MOD_SERV.BUSY;
+                CONN_ESTABLISHED   := MOD_SERV.CONN_ESTABLISHED;
+                ERROR              := MOD_SERV.ERROR;
+                STATUS_MODBUS      := MOD_SERV.STATUS_MODBUS;
+                STATUS_CONN           := MOD_SERV.STATUS_CONN;
+                STATUS_FUNC        := MOD_SERV.STATUS_FUNC;
+           
+                TELEGRAM_IN_PROCESS:= NOT MOD_SERV.STATE.TRCV1_running AND CONN_ESTABLISHED;
+        END_IF;
+        Data_Area_dw[0]:=1598117697;
+    END_IF;
+    IF H_STATION <> B#16#0
+    THEN  // check if H-CPU
+        j:=0;
+        REG_KEY_b.act_length:=B#16#11;
+        tSProductID:='MODPN2XV94501MB02';
+ 
+        IF (sSTATUS_TIMER AND W#16#60) <> W#16#0
+        THEN
+            IF (sSTATUS_TIMER AND W#16#20) <> W#16#0
+            THEN
+                RDSYSST.REQ:=true;
+                sSTATUS_TIMER:=sSTATUS_TIMER OR W#16#4000;
+            ELSE
+                RDSYSST.REQ:=false;
+            END_IF;
+ 
+ 
+            RDSYSST.RET_WERT:=RDSYSST(
+             REQ :=  RDSYSST.REQ
+            ,SZL_ID := W#16#11C     // SSL-ID W#16#xy1C - Component Identification
+            ,INDEX :=   W#16#5      // W#16#0005: Serial number of the module
+            ,BUSY := RDSYSST.BUSY
+            ,SZL_HEADER := RDSYSST.SZL_HEADER
+            ,DR := RDSYSST.SZL_11C_5
+            );
+                   // Serial number OF the module; character STRING with MAX. length OF 24
+                   // characters. Shorter numbers are filled with B#16#00.
+                   // Note: This serial number is unique world-wide FOR SIMATIC components AND
+                   // permanently associated TO the CPU hardware, that is, it remains unchanged
+                   // when a firmware update is performed.
+                  
+            IF RDSYSST.RET_WERT<>0      AND
+               RDSYSST.RET_WERT<>129    AND // W#16#0081 Result field too short. (Nevertheless as many data records as possible are supplied. The SSL header indicates this number.)
+               RDSYSST.RET_WERT<>-32638 AND // W#16#8082 SSL_ID is wrong or is unknown in the CPU or SFC.
+               RDSYSST.RET_WERT<>-32637     // W#16#8083 INDEX wrong or not permitted.
+            THEN
+                IF RDSYSST.RET_WERT=-32635 AND H_STATION=B#16#1 // W#16#8085 Due to a problem in the system, information is not currently available (for example, due to a lack of resources).
+                THEN
+                    IDENT_CODE:='CPU0 not reachable';
+                END_IF;
+ 
+                ERROR:=true;
+                STATUS_MODBUS:=INT_TO_WORD(RDSYSST.RET_WERT);
+                STATUS_FUNC:='RDSYSST';
+            ELSIF RDSYSST.BUSY
+            THEN
+                sSTATUS_TIMER:=(sSTATUS_TIMER AND W#16#FFBF) OR W#16#40;
+            ELSE
+                sSTATUS_TIMER:=sSTATUS_TIMER AND W#16#FF9F;
+ 
+                FOR i:= 0 TO 16 BY 1 DO
+                    // result - string with symbols in range 'A'-'M'
+                    sACODE[INT_TO_DINT(i)]:=INT_TO_BYTE(BYTE_TO_INT(CHAR_TO_BYTE(RDSYSST.SZL_11C_5.serialn[INT_TO_DINT(i)]) XOR (tSProductID_b.str[INT_TO_DINT(i)])) MOD 13 + 65);
+                END_FOR;
+ 
+                sACODE[17]:=B#16#32; // '2'
+                j:=BLKMOV( SRCBLK := sACODE, DSTBLK := IDENT_CODE);
+               
+            END_IF;
+            Compare_License:=true;
+        END_IF;
+       
+        IF sACODE[17]=B#16#32 // '2'
+        THEN
+            reg:=0;
+ 
+            WHILE reg<=16 DO
+                IF REG_KEY_b.str[reg] <> sSTATUS_CODE_b.str[reg] OR Compare_License
+                THEN
+                    Compare_License:=false;
+                    j:=BLKMOV(SRCBLK := IDENT_CODE, DSTBLK := sACODE );
+                    Data_Area_dw[3]:=Data_Area_dw[1]-16449013;
+                    IF j=0
+                    THEN
+                        FOR i:=0 TO 16 BY 1 DO
+                            rcv_time:= SHL(IN:=B#16#1, N:=BYTE_TO_INT(INT_TO_BYTE(i) AND 7));
+               
+                            FOR j:=0 TO 7 BY 1 DO
+                                snd_time:= SHL(IN:=B#16#1, N:=7-j);
+                                pos:=i/8*8+j;
+                               
+                                IF (tSProductID_b.str[i] AND snd_time) = snd_time
+                                THEN
+                                    sHoldingRegisterState[pos]:=sHoldingRegisterState[pos] OR rcv_time ;
+           
+                                END_IF;
+                            END_FOR;
+                        END_FOR;
+           
+                        FOR i:=0 TO 16 BY 1 DO
+                            tALicenseKey[i]:=(sACODE[i] XOR sHoldingRegisterState[i]) XOR INT_TO_BYTE(i+1);
+                            tALicenseKey[i]:=INT_TO_BYTE(BYTE_TO_INT(tALicenseKey[i]) MOD 26 + 65); // 65='A'
+                        END_FOR;                    
+                       
+                        FOR i:=0 TO 23 BY 1 DO
+                            sHoldingRegisterState[i]:=B#16#0;   
+                        END_FOR;   
+                        tALicenseKey[17]:=B#16#0;
+                        Data_Area[16]:=B#16#5F;
+                        j:=BLKMOV(SRCBLK :=REG_KEY,DSTBLK :=sACODE);
+                       
+                        IF j=0
+                        THEN
+                            FOR i:=0 TO 16 BY 1 DO
+                                IF (tALicenseKey[i]<>sACODE[i]) AND
+                                   (REG_KEY_b.str[i]<>Data_Area[i])
+                                THEN
+                                    sSTATUS_TIMER:=sSTATUS_TIMER AND W#16#FFFB;                              
+                                    LICENSED:=false;
+                                    EXIT;
+                                END_IF;
+                                IF i=16
+                                THEN
+                                    sSTATUS_TIMER:=sSTATUS_TIMER OR W#16#4;
+                                    LICENSED:=true;
+                                END_IF;
+                            END_FOR;
+                        END_IF;                          
+                    END_IF;      
+                       
+                    j:=BLKMOV(SRCBLK := REG_KEY,DSTBLK := sSTATUS_CODE);
+                END_IF;
+                reg:=reg+1;
+            END_WHILE;           
+        END_IF;
+       
+        IF j<>0 THEN
+            IF NOT LicErr_first_time THEN
+            ERROR:=true;
+            STATUS_MODBUS:=W#16#A085;// An error occurred during the license handling due to an invalid write access.
+            STATUS_FUNC:='MODBUSPN';
+            LicErr_first_time:=true;
+            END_IF;
+        END_IF;
+   
+        IF ((sSTATUS_TIMER AND W#16#4) = W#16#0) AND NOT RDSYSST.BUSY
+        THEN
+       
+            TON(IN := TON.IN ,PT := H_STATION_TIME);
+            TON.IN:=true;
+ 
+            IF TON.Q
+            THEN
+                address:=60000;      //???????
+                TON.IN:=M[address,0];  //???????
+                TON.IN:=false;
+           
+                sSTATUS_WR_USMSG:=INT_TO_WORD(WR_USMSG(SEND := false
+                ,EVENTN := W#16#A090 // The block MODBUSCP is not licensed for this CPU. This is a status information. The bit ERROR is not set. The Modbus communication runs without a license as well.
+                ,INFO1 :=  sAREA_1
+                ,INFO2 :=  sAREA_2
+                ));
+ 
+                IF sSTATUS_WR_USMSG<>W#16#0
+                THEN
+                    ERROR:=true;
+                    STATUS_MODBUS:=sSTATUS_WR_USMSG;
+                    STATUS_FUNC:='WR_USMSG';
+                END_IF;
+                TON.IN:=false;
+            END_IF;
+            IF STATUS_MODBUS = W#16#0 THEN STATUS_MODBUS:=W#16#A090; END_IF; // The block MODBUSCP is not licensed for this CPU. This is a status information. The bit ERROR is not set. The Modbus communication runs without a license as well.
+        END_IF;
+    ELSE
+        RDSYSST.RET_WERT:=RDSYSST(      // Module identification
+        REQ         :=  true       
+        ,SZL_ID     :=  W#16#111        // W#16#0111: a single identification data record
+        ,INDEX      :=  W#16#1          // W#16#0001: identification of the module
+        ,BUSY       := RDSYSST.BUSY
+        ,SZL_HEADER := RDSYSST.SZL_HEADER
+        ,DR         :=  CPU_DATA        // Order number of the module; String consists of 19 characters and a blank (20H); such as for CPU 314: "6ES7 314-0AE01-0AB0"
+        );
+        IF NOT RDSYSST.BUSY
+        THEN
+            IF RDSYSST.RET_WERT = 0
+            THEN
+                IF BYTE_TO_INT(CPU_DATA.CPUIdent[11]) = 72  // 'H' if H-CPU
+                THEN
+                    H_STATION:= B#16#1;
+                    H_STATION_TIME:=T#1M;
+                ELSE
+                    H_STATION:=B#16#2;
+                    H_STATION_TIME:=T#4S;
+                END_IF;
+            ELSE
+                ERROR:=true;
+                STATUS_MODBUS:=INT_TO_WORD(RDSYSST.RET_WERT);
+                STATUS_FUNC:='RDSYSST';
+            END_IF;
+        END_IF;
+    END_IF;
+ELSIF BYTE_TO_INT(RD_SINFO.TOP_SI.NUM)>=100 AND BYTE_TO_INT(RD_SINFO.TOP_SI.NUM)<=102
+// this part work in start OB100..OB102 (initialization)
+THEN
+    BUSY:=false;
+    DONE_NDR:=false;
+    ERROR:=false;
+    CONN_ESTABLISHED:=false;
+    STATUS_MODBUS:=W#16#0;
+    STATUS_CONN:=W#16#0;
+    STATUS_FUNC:='        ';
+    STATUS_FUNC_b[1]:=B#16#0;
+    IF sSERVER_CLIENT
+    THEN
+        UNIT:=0;
+        DATA_TYPE:=0;
+        START_ADDRESS:=0;
+        LENGTH:=0;
+        TI:=0;
+        WRITE_READ:=false;
+    END_IF;
+    Conn_First_Ok:=false;
+    Restart_Error:=false;
+    sID_GEFUNDEN:=false;
+    sSTATUS_TEMP:=W#16#0;
+    sSTATUS_FUNC:='';
+    sSTATUS_CODE:='';
+    sACODE[17]:=B#16#0;
+    LicErr_first_time:=false;
+    TELEGRAM_IN_PROCESS:=false;
+ 
+    FOR i:=1 TO 8 BY 1 DO sAREA_VALID[i]:=false; END_FOR;
+    sWDB_PARAM:=BLOCK_DB_TO_WORD(DB_PARAM);
+    Address_Struct_any:=sIDB_Nr;
+    sIDB_Nr:=Address_Struct.DB_Number;
+    TEST_DB.RET_WERT:=TEST_DB(DB_NUMBER := sWDB_PARAM
+                ,DB_LENGTH := TEST_DB.LENGTH
+                ,WRITE_PROT := TEST_DB.WRITE_PROTECT
+                );
+    tDBLength_650:=    DINT_TO_INT(WORD_TO_DINT(TEST_DB.LENGTH) / 650);
+    IF TEST_DB.RET_WERT<>0 THEN
+        STATUS_MODBUS:=INT_TO_WORD(TEST_DB.RET_WERT);
+        sSTATUS_FUNC:='TEST_DB';
+    ELSIF tDBLength_650=0 THEN
+        STATUS_MODBUS:=W#16#A001;
+    ELSIF WORD_TO_INT(ID)<=0 OR WORD_TO_INT(ID)>4095 THEN
+        STATUS_MODBUS:=W#16#A07A;
+    ELSE
+        sID:=ID;
+        FOR i:=0 TO tDBLength_650-1 BY 1 DO
+            IF DB_PARAM.DW[650*i]<>W#16#40 THEN
+                STATUS_MODBUS:=W#16#A07F;
+                EXIT;
+            ELSIF DB_PARAM.DW[650*i+2]=sID THEN
+                IF sID_GEFUNDEN THEN
+                    STATUS_MODBUS:=W#16#A07B;
+                    EXIT;
+                ELSE
+                    sID_GEFUNDEN:=true;
+                    sOFFSET_PARAM:=650*i;
+                    sSERVER_CLIENT:=DB_PARAM.DX[sOFFSET_PARAM+64];
+                    sSINGLE_WRITE:=DB_PARAM.DX[sOFFSET_PARAM+64,1];
+                    sC_AT_STARTUP:=DB_PARAM.DX[sOFFSET_PARAM+64,2];
+                    FOR j:=1 TO 8 BY 1 DO
+                        sData_area[j].data_type:=DB_PARAM.DB[sOFFSET_PARAM+66+(j-1)*8];
+                        sData_area[j].db_no:=DB_PARAM.DW[sOFFSET_PARAM+68+(j-1)*8];
+                        sData_area[j].start:=DB_PARAM.DW[sOFFSET_PARAM+70+(j-1)*8];
+                        sData_area[j].end:=DB_PARAM.DW[sOFFSET_PARAM+72+(j-1)*8];
+                    END_FOR;
+                    Address_Struct_any:=sData_area[1].data_type;
+                    sDATA_AREAS:=DWORD_TO_DINT(SHR(IN:=DW#16#FFFFFF AND Address_Struct.Byte_Pointer ,N:=3));
+                    sPTR_SEND_BUFFER:=sOFFSET_PARAM+130;
+                    sPTR_RECV1_BUFFER:=sOFFSET_PARAM+390;
+                    sPTR_RECV2_BUFFER:=sOFFSET_PARAM+396;
+                END_IF;
+            END_IF;
+        END_FOR;
+        IF  sID_GEFUNDEN THEN
+            FOR i:=1 TO 8 BY 1 DO
+                IF BYTE_TO_INT(sData_area[i].data_type)<0 OR BYTE_TO_INT(sData_area[i].data_type)>4 THEN
+                    STATUS_MODBUS:=W#16#A07C;
+                    EXIT;
+                END_IF;
+                IF sData_area[i].data_type<>0 THEN
+                    sAREA_VALID[i]:=true;
+                ELSIF i=1 THEN
+                    STATUS_MODBUS:=W#16#A07D;
+                    EXIT;
+                END_IF;   
+            END_FOR;
+            FOR i:=1 TO 8 BY 1 DO
+                IF sAREA_VALID[i] THEN
+                    Start_x:=WORD_TO_DINT(sData_area[i].start);
+                    End_x:=WORD_TO_DINT(sData_area[i].end);
+                    IF Start_x>End_x THEN
+                        STATUS_MODBUS:=W#16#A002;
+                        EXIT;
+                    END_IF;   
+                    IF sData_area[i].db_no=W#16#0 THEN
+                        STATUS_MODBUS:=W#16#A019;
+                        EXIT;
+                   
+                    ELSIF sData_area[i].db_no=sIDB_Nr OR sData_area[i].db_no=sWDB_PARAM THEN
+                        STATUS_MODBUS:=W#16#A07E;
+                        EXIT;
+                    ELSE
+                        TEST_DB.RET_WERT:=TEST_DB(DB_NUMBER := sData_area[i].db_no
+                                                ,DB_LENGTH :=  TEST_DB.LENGTH
+                                                ,WRITE_PROT := TEST_DB.WRITE_PROTECT
+                                                );
+                        IF TEST_DB.RET_WERT<>0 THEN
+                            STATUS_MODBUS:= INT_TO_WORD(TEST_DB.RET_WERT);
+                            STATUS_FUNC:='TEST_DB';
+                            EXIT;
+                        END_IF;
+                    END_IF;   
+                    IF sData_area[i].data_type=B#16#3 OR sData_area[i].data_type=B#16#4 THEN
+                        IF (End_x-Start_x+1)>(WORD_TO_DINT(TEST_DB.LENGTH)-2)/2 THEN
+                            STATUS_MODBUS:=W#16#A003;
+                            EXIT;
+                        END_IF;   
+                    ELSE
+                        IF (End_x-Start_x+1)>(WORD_TO_DINT(TEST_DB.LENGTH)-2)*8 THEN
+                            STATUS_MODBUS:=W#16#A003;
+                            EXIT;
+                        END_IF;   
+                    END_IF;   
+                    j:=i+1;
+                    WHILE j<=8 DO
+                        IF sAREA_VALID[j] THEN
+                            IF sData_area[i].db_no=sData_area[j].db_no THEN
+                                STATUS_MODBUS:=W#16#A010;
+                                EXIT;
+                            END_IF;   
+                            Start_y:=WORD_TO_DINT(sData_area[j].start);
+                            End_y:=WORD_TO_DINT(sData_area[j].end);
+                            IF sData_area[j].data_type = sData_area[i].data_type THEN
+                                IF ((((Start_y>=Start_x) AND (Start_y<=End_x)) OR
+                                        ((End_y>=Start_x) AND (End_y<=End_x))) OR
+                                    ((Start_x>=Start_y) AND (Start_x<=End_y))) OR
+                                    ((End_x>=Start_y) AND (End_x<=End_y))
+                                THEN
+                                    STATUS_MODBUS:= SHL(IN:=INT_TO_WORD(i),N:=4) OR W#16#A000 OR INT_TO_WORD(j);
+                                    EXIT;
+                                END_IF;
+                            END_IF;
+                        END_IF;
+                        j:=j+1;
+                    END_WHILE;
+                    IF STATUS_MODBUS <> W#16#0 THEN
+                        EXIT;
+                    END_IF;
+                END_IF;
+            END_FOR;
+        ELSIF STATUS_MODBUS = W#16#0 THEN
+            STATUS_MODBUS:=W#16#A079;
+        END_IF;
+ 
+        IF CONN_TIME<T#100ms THEN
+            sCONN_TIME:=T#5S;
+        ELSE
+            sCONN_TIME:=CONN_TIME;
+        END_IF;
+        IF STATUS_MODBUS = W#16#0 THEN
+        // A80b A806
+            IF NOT sSERVER_CLIENT THEN
+                MOD_CLI(ID := sID
+                    ,WDB_PARAM := sWDB_PARAM
+                    ,CONN_TIME := sCONN_TIME
+                    ,sC_AT_STARTUP := sC_AT_STARTUP
+                    ,DISCONNECT := NOT old_Init_Start AND  Init_Start AND NOT ERROR
+                    ,ANLAUF :=  true
+                    ,OFFSET_PARAM := sOFFSET_PARAM
+                    );
+                BUSY:= MOD_CLI.BUSY;
+                CONN_ESTABLISHED:= MOD_CLI.CONN_ESTABLISHED;
+                ERROR:= MOD_CLI.ERROR;
+                STATUS_MODBUS:= MOD_CLI.STATUS_MODBUS;
+                STATUS_CONN:= MOD_CLI.STATUS_CONN;
+                STATUS_FUNC:=MOD_CLI.STATUS_FUNC;
+            ELSE
+                MOD_SERV(ID :=  sID
+                               ,WDB_PARAM :=  sWDB_PARAM
+                               ,CONN_TIME :=  sCONN_TIME
+                               ,sC_AT_STARTUP := sC_AT_STARTUP
+                               ,DISCONNECT := NOT old_Init_Start AND  Init_Start AND NOT ERROR
+                               ,ANLAUF :=  true
+                               ,OFFSET_PARAM :=  sOFFSET_PARAM
+                               );
+                   BUSY:= MOD_SERV.BUSY;
+                   CONN_ESTABLISHED:= MOD_SERV.CONN_ESTABLISHED;
+                   ERROR:= MOD_SERV.ERROR;
+                   STATUS_MODBUS:= MOD_SERV.STATUS_MODBUS;
+                   STATUS_CONN:= MOD_SERV.STATUS_CONN;
+                   STATUS_FUNC:=MOD_SERV.STATUS_FUNC;
+            END_IF;
+            TELEGRAM_IN_PROCESS:=MOD_SERV.BUSY OR MOD_CLI.BUSY;
+        END_IF;   
+    END_IF; 
+    IF STATUS_MODBUS <> W#16#0 THEN
+        ERROR:=true;
+        Restart_Error:=true;
+        sSTATUS_TEMP:=STATUS_MODBUS;
+       
+        IF WORD_TO_DINT(sSTATUS_TEMP)>=40960 THEN
+            sSTATUS_FUNC:='MODBUSPN';
+            STATUS_FUNC:=sSTATUS_FUNC;
+        END_IF;
+    END_IF;
+ 
+    sSTATUS_TIMER:=sSTATUS_TIMER OR W#16#20;
+    IF NOT old_Init_Start AND Init_Start THEN
+        Init_Error:=ERROR;
+        Init_Status:=STATUS_MODBUS;
+    END_IF;
+END_IF;
+old_Init_Start:=Init_Start;
+ 
+END_FUNCTION_BLOCK
