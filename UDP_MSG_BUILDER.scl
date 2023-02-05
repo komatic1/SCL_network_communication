@@ -1,0 +1,108 @@
+// Name: FC99
+// Symbolic Name: UDP_MSG_BUILDER
+// Symbol Comment:
+// Family: COMM
+// Version: 1.0
+// Author: SIEMENS
+// Last modified: 02/10/2012
+// Use: SFC1,SFC20
+// Size: 612 bytes
+// Signature: generiert vom SCL Übersetzer Version: SCLCOMP K05.03.07.00_01.02.00.01 release
+
+
+{
+Scl_ResetOptions ;
+Scl_OverwriteBlocks:=           'y' ;
+Scl_GenerateReferenceData :=    'y' ;
+Scl_S7ServerActive:=            'n' ;
+Scl_CreateObjectCode:=          'y' ;
+Scl_OptimizeObjectCode:=        'y' ;
+Scl_MonitorArrayLimits:=        'n' ;
+Scl_CreateDebugInfo :=          'n' ;
+Scl_SetOKFlag:=                 'n' ;
+Scl_SetMaximumStringLength:=    '254'
+}
+FUNCTION FC999 : VOID
+TITLE ='UDP_MSG_BUILDER'
+AUTHOR : SIEMENS
+FAMILY : COMM
+NAME : UDP_MSGB
+VERSION : '1.0'
+ 
+ 
+VAR_INPUT
+  serialnumber : DINT ;   
+  Connection_Data : ANY ;   
+  Status : WORD ;   
+  Function_Type : STRING  [254 ];   
+  Function_Type_st AT Function_Type : STRUCT
+    a : WORD;
+    b : DATE_AND_TIME;
+  END_STRUCT;
+ 
+  ID : WORD ;   
+END_VAR
+VAR_IN_OUT
+  logdata : ARRAY  [1 .. 28 ] OF BYTE ;   
+  logdata_d AT  logdata : ARRAY  [1 .. 7 ] OF DINT ;   
+  logdata_st AT logdata : STRUCT
+  ar : ARRAY [1..6] OF BYTE;
+  d6 : DINT;
+  d10 : DINT;
+  w14 : WORD;
+  w16 : WORD;
+  d18 : DATE_AND_TIME;
+  w26 : WORD;
+  END_STRUCT ; 
+END_VAR
+VAR_TEMP
+  vConnection_Data : STRUCT    
+   block_length : WORD ;   
+   id : WORD ;   
+   connection_type : BYTE ;   
+   active_est : BOOL ;   
+   local_device_id : BYTE ;   
+   local_tsap_id_len : BYTE ;   
+   rem_subnet_id_len : BYTE ;   
+   rem_staddr_len : BYTE ;   
+   rem_tsap_id_len : BYTE ;   
+   next_staddr_len : BYTE ;   
+   local_tsap_id : ARRAY  [1 .. 8 ] OF WORD ;   
+   rem_subnet_id : ARRAY  [1 .. 6 ] OF BYTE ;   
+   rem_staddr : DINT ;   
+   spare_word : WORD ;   
+   rem_tsap_id : ARRAY  [1 .. 8 ] OF WORD ;   
+   next_staddr : ARRAY  [1 .. 6 ] OF BYTE ;   
+   spare : WORD ;   
+  END_STRUCT ;   
+  dttime : DATE_AND_TIME ;   
+  dttime_b AT dttime : ARRAY[1..8] OF BYTE;
+  retval : INT ;   
+END_VAR
+BEGIN
+ 
+FOR retval:=1 TO 7 BY 1 DO
+    logdata_d[retval]:=0;
+END_FOR;
+ 
+retval:=BLKMOV(SRCBLK :=  Connection_Data
+       ,DSTBLK :=  vConnection_Data
+       );
+      
+retval:=READ_CLK(CDT:=dttime);
+ 
+logdata_st.ar[1]    :=B#16#1C;
+logdata_st.ar[2]    :=INT_TO_BYTE(BCD_TO_INT(BYTE_TO_WORD(dttime_b[4])));
+logdata_st.ar[3]    :=INT_TO_BYTE(BCD_TO_INT(BYTE_TO_WORD(dttime_b[5])));
+logdata_st.ar[4]    :=INT_TO_BYTE(BCD_TO_INT(BYTE_TO_WORD(dttime_b[6])));
+logdata_st.ar[5]    :=INT_TO_BYTE(BCD_TO_INT(BYTE_TO_WORD(dttime_b[7])));
+dttime_b[8]            :=dttime_b[8] AND B#16#F0;
+logdata_st.ar[6]    :=INT_TO_BYTE(BCD_TO_INT(BYTE_TO_WORD(dttime_b[8]))/10);
+logdata_st.d6        :=serialnumber;
+logdata_st.d10        :=vConnection_Data.rem_staddr;
+logdata_st.w14        :=vConnection_Data.rem_tsap_id[1];
+logdata_st.w16        :=ID;
+logdata_st.d18        :=Function_Type_st.b;
+logdata_st.w26        :=Status;
+ 
+END_FUNCTION

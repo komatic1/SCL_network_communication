@@ -1,0 +1,83 @@
+// Name: SgnGet
+// Symbolic Name: Signal_Get
+// Symbol Comment: Get RS-232 signals
+// Family: Freeport
+// Version: 1.0
+// Author: SIMATIC
+// Last modified: 09/28/2012
+// Use: SFB52,SFB53
+// Size in work memory: 250 bytes
+// Object name: Signal_Get
+// Signature: generiert vom SCL Übersetzer Version: SCLCOMP K05.03.06.00_01.03.00.01 release
+
+{
+Scl_ResetOptions ;
+Scl_OverwriteBlocks:=           'y' ;
+Scl_GenerateReferenceData :=    'y' ;
+Scl_S7ServerActive:=            'n' ;
+Scl_CreateObjectCode:=          'y' ;
+Scl_OptimizeObjectCode:=        'y' ;
+Scl_MonitorArrayLimits:=        'n' ;
+Scl_CreateDebugInfo :=          'y' ;
+Scl_SetOKFlag:=                 'n' ;
+Scl_SetMaximumStringLength:=    '254'
+}
+FUNCTION_BLOCK FB1615
+TITLE ='Get RS-232 signals'
+AUTHOR : SIMATIC
+FAMILY : Freeport
+NAME : SgnGet
+VERSION : '1.0'
+ 
+ 
+VAR_INPUT
+  REQ : BOOL ;    //Reads the RS 232 signals on rising edge
+  PORT : WORD ;    //Communication port, Hardware Identifier
+END_VAR
+VAR_OUTPUT
+  NDR : BOOL ;    //Instruction finished without error
+  ERROR : BOOL ;    //Instruction finished with error
+  STATUS : WORD  := W#16#7000;    //Detailed error information
+  DTR : BOOL ;    //Data terminal ready, module ready
+  DSR : BOOL ;    //Data set ready, communication partner ready
+  RTS : BOOL ;    //Request to send, module ready to send
+  CTS : BOOL ;    //Clear to send, communication partner can receive data from the module
+  DCD : BOOL ;    //Data carrier detect, receive signal level
+  RING : BOOL ;    //Ring indicator, indication of incoming call
+END_VAR
+VAR
+  b_e_REQ : BOOL ;    //edge flag for REQ
+END_VAR
+VAR_TEMP
+  net_data : STRUCT    
+   V24signals : BYTE ;    //V24 signals
+   res : BYTE ;   
+  END_STRUCT ;
+  V24signals_b AT net_data : ARRAY[0..7] OF BOOL;
+END_VAR
+BEGIN
+ERROR:=FALSE;
+NDR:=FALSE;
+IF (NOT(b_e_REQ)) AND REQ THEN (*A7d0*)
+    net_data.V24signals:=PIB[WORD_TO_DINT(PORT)+0];
+    IF V24signals_b[7] THEN (*A7d1*)
+        DTR:=V24signals_b[0];
+        DSR:=V24signals_b[1];
+        RTS:=V24signals_b[2];
+        CTS:=V24signals_b[3];
+        DCD:=V24signals_b[4];
+        RING:=V24signals_b[5];
+        NDR:=TRUE;
+        STATUS:=W#16#0;
+    ELSE (*A7d1*)
+        ERROR:=TRUE;
+        STATUS:=W#16#81F0;
+    END_IF;   
+ELSE (*A7d0*)
+    STATUS:=W#16#7000;
+END_IF; (*A7d3*)
+b_e_REQ:=REQ;
+IF ERROR THEN (*A7d4*)
+    OK:=FALSE;
+END_IF; (*A7d4*)
+END_FUNCTION_BLOCK

@@ -1,0 +1,191 @@
+// Name: SendConf
+// Symbolic Name: Send_Config
+// Symbol Comment: Send configuration
+// Family: Freeport
+// Version: 1.0
+// Author: SIMATIC
+// Last modified: 10/30/2012
+// Use: SFB52,SFB53
+// Size in work memory: 928 bytes
+// Object name: Send_Config
+// Signature: generiert vom SCL Übersetzer Version: SCLCOMP K05.03.06.00_01.03.00.01 release
+
+{
+Scl_ResetOptions ;
+Scl_OverwriteBlocks:=           'y' ;
+Scl_GenerateReferenceData :=    'y' ;
+Scl_S7ServerActive:=            'n' ;
+Scl_CreateObjectCode:=          'y' ;
+Scl_OptimizeObjectCode:=        'y' ;
+Scl_MonitorArrayLimits:=        'n' ;
+Scl_CreateDebugInfo :=          'n' ;
+Scl_SetOKFlag:=                 'n' ;
+Scl_SetMaximumStringLength:=    '254'
+}
+FUNCTION_BLOCK FB1611
+TITLE ='Send Configuration'
+AUTHOR : SIMATIC
+FAMILY : Freeport
+NAME : SendConf
+VERSION : '1.0'
+ 
+ 
+VAR_INPUT
+  REQ : BOOL ;    //Activates the configuration for sending on rising edge
+  PORT : WORD ;    //Communication port, Hardware Identifier
+  RTSONDLY : WORD ;    //Time to wait after activating RTS before transmission will be initiated (ms)
+  RTSOFFDLY : WORD ;    //Time to wait before de-activating RTS once transmission has been completed (ms)
+  BREAK : WORD ;    //On start of a message, a break will be sent for the specified no. of bit times
+  IDLELINE : WORD ;    //Number of bits times the line will be idle before the next transmission
+  USR_END : STRING  [2 ];    //Number of characters in the end delimiter
+  USR_END_c AT USR_END : ARRAY[0..3] OF BYTE;
+  APP_END : STRING  [5 ];    //Number of characters to be appended to the transmitted message
+  APP_END_c AT APP_END : ARRAY[0..6] OF BYTE;
+ END_VAR
+VAR_OUTPUT
+  DONE : BOOL ;    //Instruction finished without error
+  ERROR : BOOL ;    //Instruction finished with error
+  STATUS : WORD  := W#16#7000;    //Detailed error information
+END_VAR
+VAR_IN_OUT
+  COM_RST : BOOL ;    //Complete restart
+END_VAR
+VAR
+  b_e_REQ : BOOL ;    //Edge flag for REQ
+  y_state : BYTE ;    //State of instruction
+  WRREC : SFB53;    //Local instance of instruction WRREC
+  RDREC : SFB52;    //Local instance of instruction RDREC
+END_VAR
+VAR_TEMP
+  tmpSTATUS : WORD ;    //Status, when Error occured
+  w_record : STRUCT    
+   header : STRUCT    
+    block_type : WORD ;   
+    block_len : WORD ;   
+    block_ver : WORD ;   
+    res : WORD ;   
+   END_STRUCT ;   
+   net_data : STRUCT    
+    RTSONDLY : WORD ;    //Time to wait after activating RTS before transmission will be initiated
+    RTSOFFDLY : WORD ;    //Time to wait before de-activating RTS once transmission has been completed
+    BREAK : WORD ;    //On start of a message, a break will be sent for the specified no. of bit times
+    IDLELINE : WORD ;    //Number of bits times the line will be idle after the break on start of message
+    Conditions : WORD ;    //unused by FB
+    USR_ECHR_MAX : BYTE ;    //Max String length
+    USR_ECHR_CNT : BYTE ;    //number of characters in the end delimiter
+    USR_END_CHR1 : CHAR ;    //value of the first character in the end delimiter
+    USR_END_CHR2 : CHAR ;    //value of the second character in the end delimiter
+    APP_ECHR_MAX : BYTE ;    //Max String length
+    APP_ECHR_CNT : BYTE ;    //number of end characters to be appended to the transmitted message
+    APP_END_CHR1 : CHAR ;    //value of the first end character to be appended to the transmitted message
+    APP_END_CHR2 : CHAR ;    //value of the second end character to be appended to the transmitted message
+    APP_END_CHR3 : CHAR ;    //value of the third end character to be appended to the transmitted message
+    APP_END_CHR4 : CHAR ;    //value of the fourth end character to be appended to the transmitted message
+    APP_END_CHR5 : CHAR ;    //value of the fifth end character to be appended to the transmitted message
+    reserved : BYTE ;   
+    reserved1 : BYTE ;   
+    reserved2 : BYTE ;   
+   END_STRUCT ;   
+  END_STRUCT ;
+w_record_ar AT w_record : ARRAY[0..13] OF BYTE; 
+ 
+END_VAR
+BEGIN
+IF COM_RST THEN (*A7d0*)
+    b_e_REQ:=FALSE;
+    y_state:=B#16#0;
+    WRREC.BUSY:=FALSE;
+    RDREC.BUSY:=FALSE;
+    COM_RST:=FALSE;
+END_IF; (*A7d0*)
+ERROR:=FALSE;
+DONE:=FALSE;
+IF ((NOT(b_e_REQ)) AND REQ) AND (y_state=B#16#0) THEN (*A7d1*)
+    y_state:=B#16#1;
+END_IF; (*A7d1*)
+b_e_REQ:=REQ;
+IF y_state=B#16#1 THEN (*A7d2*)
+    IF NOT(WRREC.BUSY) THEN (*A7d3*)
+        tmpSTATUS:=W#16#7001;
+        w_record.header.block_type:=W#16#3B;
+        w_record.header.block_len:=W#16#1C;
+        w_record.header.block_ver:=W#16#100;
+        w_record.header.res:=W#16#0;
+        w_record.net_data.RTSONDLY:=RTSONDLY;
+        w_record.net_data.RTSOFFDLY:=RTSOFFDLY;
+        w_record.net_data.BREAK:=BREAK;
+        w_record.net_data.IDLELINE:=IDLELINE;
+        w_record.net_data.Conditions:=W#16#0;
+        w_record.net_data.USR_ECHR_MAX:=B#16#2;
+        w_record.net_data.USR_ECHR_CNT:=USR_END_c[1];
+        w_record.net_data.USR_END_CHR1:=BYTE_TO_CHAR(USR_END_c[2]);
+        w_record.net_data.USR_END_CHR2:=BYTE_TO_CHAR(USR_END_c[3]);
+        w_record.net_data.APP_ECHR_MAX:=B#16#5;
+        w_record.net_data.APP_ECHR_CNT:=APP_END_c[1];
+        w_record.net_data.APP_END_CHR1:=BYTE_TO_CHAR(APP_END_c[2]);
+        w_record.net_data.APP_END_CHR2:=BYTE_TO_CHAR(APP_END_c[3]);
+        w_record.net_data.APP_END_CHR3:=BYTE_TO_CHAR(APP_END_c[4]);
+        w_record.net_data.APP_END_CHR4:=BYTE_TO_CHAR(APP_END_c[5]);
+        w_record.net_data.APP_END_CHR5:=BYTE_TO_CHAR(APP_END_c[6]);
+        w_record.net_data.reserved:=B#16#0;
+        w_record.net_data.reserved1:=B#16#0;
+        w_record.net_data.reserved2:=B#16#0;
+    ELSE (*A7d3*)
+        tmpSTATUS:=W#16#7002;
+    END_IF; (*A7d4*)
+    WRREC(REQ := NOT(WRREC.BUSY)
+                ,ID := PORT
+                ,INDEX := 59 // IN: INT
+                ,LEN := 32 // IN: INT
+                ,RECORD := w_record  // INOUT: ANY
+                );
+    IF WRREC.ERROR THEN (*A7d5*)
+        IF (WRREC.STATUS AND DW#16#FFFF00)=DW#16#80E100 THEN (*A7d6*)
+            y_state:=B#16#2;
+        ELSIF (WRREC.STATUS AND DW#16#F500)=DW#16#C500 THEN (*A7d8*)
+            ERROR:=TRUE;
+            tmpSTATUS:=W#16#8282;
+            y_state:=B#16#0;
+        ELSIF (WRREC.STATUS AND DW#16#F000)<>DW#16#C000 THEN (*A7db*)
+            ERROR:=TRUE;
+            tmpSTATUS:=W#16#8281;
+            y_state:=B#16#0;
+        END_IF; (*A7d7*)
+    ELSIF NOT(WRREC.BUSY) THEN (*A7db*)
+        tmpSTATUS:=W#16#0;
+        y_state:=B#16#0;
+        DONE:=TRUE;
+    END_IF; (*A7db*)
+    STATUS:=tmpSTATUS;
+ELSIF y_state=B#16#2 THEN (*A7dd*)
+    RDREC(REQ := NOT(RDREC.BUSY) // IN: BOOL
+        ,ID := PORT // IN: DWORD
+        ,INDEX := 55 // IN: INT
+        ,MLEN := 14 // IN: INT
+        ,RECORD := w_record_ar // INOUT: ANY
+        );
+    IF RDREC.ERROR THEN (*A7de*)
+        IF (RDREC.STATUS AND DW#16#F500)=DW#16#C500 THEN (*A7df*)
+            ERROR:=TRUE;
+            STATUS:=W#16#8282;
+            y_state:=B#16#0;
+        ELSIF (RDREC.STATUS AND DW#16#F000)<>DW#16#C000 THEN (*A7dc*)
+            ERROR:=TRUE;
+            STATUS:=W#16#8280;
+            y_state:=B#16#0;
+        END_IF; (*A7e0*)
+    ELSIF NOT(RDREC.BUSY) THEN (*A7e3*)
+        STATUS:=w_record.net_data.BREAK;
+        y_state:=B#16#0;
+        ERROR:=TRUE;
+    ELSE (*A7e3*)
+        STATUS:=W#16#7002;
+    END_IF;   
+ELSE (*A7dd*)
+    STATUS:=W#16#7000;
+END_IF; (*A7dc*)
+IF ERROR THEN (*A7e4*)
+    OK:=FALSE;
+END_IF; (*A7e4*)
+ 
+END_FUNCTION_BLOCK

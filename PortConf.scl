@@ -1,0 +1,192 @@
+// Name: PortConf
+// Symbolic Name: Port_Config
+// Symbol Comment: Port configuration
+// Family: Freeport
+// Version: 1.0
+// Author: SIMATIC
+// Last modified: 09/28/2012
+// Use: SFB52,SFB53
+// Size in work memory: 854 bytes
+// Object name: Port_Config
+// Signature: generiert vom SCL Übersetzer Version: SCLCOMP K05.03.06.00_01.03.00.01 release
+
+{
+Scl_ResetOptions ;
+Scl_OverwriteBlocks:=           'y' ;
+Scl_GenerateReferenceData :=    'y' ;
+Scl_S7ServerActive:=            'n' ;
+Scl_CreateObjectCode:=          'y' ;
+Scl_OptimizeObjectCode:=        'y' ;
+Scl_MonitorArrayLimits:=        'n' ;
+Scl_CreateDebugInfo :=          'n' ;
+Scl_SetOKFlag:=                 'n' ;
+Scl_SetMaximumStringLength:=    '254'
+}
+FUNCTION_BLOCK FB1610
+TITLE ='Port Configuration'
+AUTHOR : SIMATIC
+FAMILY : Freeport
+NAME : PortConf
+VERSION : '1.0'
+ 
+ 
+VAR_INPUT
+  REQ : BOOL ;    //Activates configuration of the port on rising edge
+  PORT : WORD ;    //Communication port, Hardware Identifier
+  PROTOCOL : WORD ;    //Protocol selection: 0=Freeport, 1=3964(R)
+  BAUD : WORD ;    //Transmission rate
+  PARITY : WORD ;    //Parity
+  DATABITS : WORD ;    //Number of data bits
+  STOPBITS : WORD ;    //Number of stop bits
+  FLOWCTRL : WORD ;    //Enable flow control
+  XONCHAR : CHAR ;    //XON character
+  XOFFCHAR : CHAR ;    //XOFF character
+  WAITTIME : WORD  := W#16#7D0;    //Time to wait for XON/RTS after receiving XOFF/CTS (ms)
+  MODE : BYTE ;    //Duplex operation mode
+  LINE_PRE : BYTE ;    //Presetting of the receive line
+  BRK_DET : BYTE ;    //RS232 BREAK Handling
+END_VAR
+VAR_OUTPUT
+  DONE : BOOL ;    //Instruction finished without error
+  ERROR : BOOL ;    //Instruction finished with error
+  STATUS : WORD  := W#16#7000;    //Detailed error information
+END_VAR
+VAR_IN_OUT
+  COM_RST : BOOL ;    //Complete restart
+END_VAR
+VAR
+  b_e_REQ : BOOL ;    //Edge flag for REQ
+  y_state : BYTE ;    //State of instruction
+  WRREC : SFB53;    //Local instance of instruction WRREC
+  RDREC : SFB52;    //Local instance of instruction RDREC
+END_VAR
+VAR_TEMP
+  tmpSTATUS : WORD ;    //Status, when Error occured
+  w_record : STRUCT    
+   header : STRUCT    
+    block_type : WORD ;   
+    block_len : WORD ;   
+    block_ver : WORD ;   
+    res : WORD ;   
+   END_STRUCT ;   
+   net_data : STRUCT    
+    PROTOCOL : WORD ;    //Protocol selections: 0=Freeport
+    BAUD : WORD ;    //Baud rate of the port
+    PARITY : WORD ;    //Parity of the port
+    DATABITS : WORD ;    //Number of data bits
+    STOPBITS : WORD ;    //Number of stop bits
+    FLOWCTRL : WORD ;    //enables or disables flow control
+    XONCHAR : CHAR ;    //Actual XON character.
+    XOFFCHAR : CHAR ;    //Actual XOFF character
+    WAITTIME : WORD ;    //Amount of time to wait for XON after receiving XOFF or CTS after enabling RTS
+    MODE : BYTE ;    //0 = RS422; 1 = RS485
+    LINE_PRE : BYTE ;    //Presetting of the receive line
+    BRK_DET : BYTE ;    //RS232 BREAK Handling
+    LibSupport : BYTE ;    //Library Support
+    res : BYTE ;    //reserved
+   END_STRUCT ;   
+  END_STRUCT ;   
+  r_record : STRUCT    
+   header : STRUCT    
+    block_type : WORD ;   
+    block_len : WORD ;   
+    block_ver : WORD ;   
+    res : WORD ;   
+   END_STRUCT ;   
+   e1 : WORD ;   
+   porterr : WORD ;   
+  END_STRUCT ;   
+END_VAR
+BEGIN
+IF COM_RST THEN (*A7d0*)
+    b_e_REQ:=FALSE;
+    y_state:=B#16#0;
+    WRREC.BUSY:=FALSE;
+    RDREC.BUSY:=FALSE;
+    COM_RST:=FALSE;
+END_IF; (*A7d0*)
+ERROR:=FALSE;
+DONE:=FALSE;
+IF ((NOT(b_e_REQ)) AND REQ) AND (y_state=B#16#0) THEN (*A7d1*)
+    y_state:=B#16#1;
+END_IF; (*A7d1*)
+b_e_REQ:=REQ;
+IF y_state=B#16#1 THEN (*A7d2*)
+    IF NOT(WRREC.BUSY) THEN (*A7d3*)
+        tmpSTATUS:=W#16#7001;
+        w_record.header.block_type:=W#16#39;
+        w_record.header.block_len:=W#16#18;
+        w_record.header.block_ver:=W#16#100;
+        w_record.header.res:=W#16#0;
+        w_record.net_data.PROTOCOL:=PROTOCOL;
+        w_record.net_data.BAUD:=BAUD;
+        w_record.net_data.PARITY:=PARITY;
+        w_record.net_data.DATABITS:=DATABITS;
+        w_record.net_data.STOPBITS:=STOPBITS;
+        w_record.net_data.FLOWCTRL:=FLOWCTRL;
+        w_record.net_data.XONCHAR:=XONCHAR;
+        w_record.net_data.XOFFCHAR:=XOFFCHAR;
+        w_record.net_data.WAITTIME:=WAITTIME;
+        w_record.net_data.MODE:=MODE;
+        w_record.net_data.LINE_PRE:=LINE_PRE;
+        w_record.net_data.BRK_DET:=BRK_DET;
+        w_record.net_data.LibSupport:=B#16#0;
+        w_record.net_data.res:=B#16#0;
+    ELSE (*A7d3*)
+        tmpSTATUS:=W#16#7002;
+    END_IF; (*A7d4*)
+    WRREC(REQ := NOT(WRREC.BUSY)
+                ,ID := PORT// IN: DWORD
+                ,INDEX := 57 // IN: INT
+                ,LEN := 28 // IN: INT
+                ,RECORD := w_record  // INOUT: ANY
+                );
+    IF WRREC.ERROR THEN (*A7d5*)
+        IF (WRREC.STATUS AND DW#16#FFFF00)=DW#16#80E100 THEN (*A7d6*)
+            y_state:=B#16#2;
+        ELSIF (WRREC.STATUS AND DW#16#F500)=DW#16#C500 THEN (*A7d8*)
+            ERROR:=TRUE;
+            tmpSTATUS:=W#16#8282;
+            y_state:=B#16#0;
+        ELSIF (WRREC.STATUS AND DW#16#F000)<>DW#16#C000 THEN (*A7db*)
+            ERROR:=TRUE;
+            tmpSTATUS:=W#16#8281;
+            y_state:=B#16#0;
+        END_IF; (*A7d7*)
+    ELSIF NOT(WRREC.BUSY) THEN (*A7db*)
+        tmpSTATUS:=W#16#0;
+        y_state:=B#16#0;
+        DONE:=TRUE;
+    END_IF; (*A7db*)
+    STATUS:=tmpSTATUS;
+ELSIF y_state=B#16#2 THEN (*A7dd*)
+    RDREC(REQ := NOT(RDREC.BUSY) // IN: BOOL
+        ,ID := PORT // IN: DWORD
+        ,INDEX := 55 // IN: INT
+        ,MLEN := 12 // IN: INT
+        ,RECORD := r_record // INOUT: ANY
+        );
+    IF RDREC.ERROR THEN (*A7de*)
+        IF (RDREC.STATUS AND DW#16#F500)=DW#16#C500 THEN (*A7df*)
+            ERROR:=TRUE;
+            tmpSTATUS:=W#16#8282;
+            y_state:=B#16#0;
+        ELSIF (RDREC.STATUS AND DW#16#F000)<>DW#16#C000 THEN (*A7dc*)
+            ERROR:=TRUE;
+            STATUS:=W#16#8280;
+            y_state:=B#16#0;
+        END_IF; (*A7e0*)
+    ELSIF NOT(RDREC.BUSY) THEN (*A7e3*)
+        STATUS:=r_record.porterr;
+        y_state:=B#16#0;
+        ERROR:=TRUE;
+    ELSE (*A7e3*)
+        STATUS:=W#16#7002;
+    END_IF;       
+ELSE (*A7dd*)
+    STATUS:=W#16#7000;
+END_IF; (*A7dc*)
+IF ERROR THEN (*A7e4*)
+    OK:=FALSE;
+END_IF; (*A7e4*)
+END_FUNCTION_BLOCK

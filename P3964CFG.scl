@@ -1,0 +1,168 @@
+// Name: P3964CFG
+// Symbolic Name: P3964_Config
+// Symbol Comment: 3964 configuration
+// Family: Freeport
+// Version: 1.1
+// Author: SIMATIC
+// Last modified: 07/31/2013
+// Use: SFB52,SFB53
+// Size in work memory: 796 bytes
+// Object name: Signal_Get
+// Signature: generiert vom SCL Übersetzer Version: SCLCOMP K05.03.06.00_01.03.00.01 release
+
+
+{
+Scl_ResetOptions ;
+Scl_OverwriteBlocks:=           'y' ;
+Scl_GenerateReferenceData :=    'y' ;
+Scl_S7ServerActive:=            'n' ;
+Scl_CreateObjectCode:=          'y' ;
+Scl_OptimizeObjectCode:=        'y' ;
+Scl_MonitorArrayLimits:=        'n' ;
+Scl_CreateDebugInfo :=          'n' ;
+Scl_SetOKFlag:=                 'n' ;
+Scl_SetMaximumStringLength:=    '254'
+}
+FUNCTION_BLOCK FB1620
+TITLE = '3964 Configuration'
+AUTHOR : SIMATIC
+FAMILY : Freeport
+NAME : P3964CFG
+VERSION : '1.1'
+ 
+VAR_INPUT
+  REQ : BOOL ;    //Activates configuration of 3964 on rising edge
+  PORT : WORD ;    //Communication port, Hardware Identifier
+  BCC : BYTE  := B#16#1;    //Enable Block check character; 0 = without, 1 = with
+  Priority : BYTE ;    //Priority, when initialization conflict occured
+  CharacterDelayTime : WORD  := W#16#DC;    //Character delay time (bittimes)
+  AcknDelayTime : WORD  := W#16#7D0;    //Acknowledgment delay time
+  BuildupAttempts : BYTE  := B#16#6;    //Acknowledgment delay time (bittimes)
+  RepetitionAttempts : BYTE  := B#16#6;    //Maximal number of setup attempts
+END_VAR
+VAR_OUTPUT
+  DONE : BOOL ;    //Instruction finished without error
+  ERROR : BOOL ;    //Instruction finished with error
+  STATUS : WORD  := W#16#7000;    //Detailed error information
+END_VAR
+VAR_IN_OUT
+  COM_RST : BOOL ;    //Complete restart
+END_VAR
+VAR
+  b_e_REQ : BOOL ;    //Edge flag for REQ
+  y_state : BYTE ;    //State of instruction
+  WRREC : SFB53;    //Local instance of instruction WRREC
+  RDREC : SFB52;    //Local instance of instruction RDREC
+END_VAR
+VAR_TEMP
+  tmpSTATUS : WORD ;    //Status, when Error occured
+  r_record : STRUCT    
+   header : STRUCT    
+    block_type : WORD ;   
+    block_len : WORD ;   
+    block_ver : WORD ;   
+    res : WORD ;   
+   END_STRUCT ;   
+   e1 : WORD ;   
+   e2 : WORD ;   
+   e3 : WORD ;   
+   e4 : WORD ;   
+   e5 : WORD ;   
+   r3964err : WORD ;   
+  END_STRUCT ;   
+r_record_b AT r_record : ARRAY[0..19] OF BYTE;
+r_record_b1 AT r_record : ARRAY[0..15] OF BYTE;
+END_VAR
+ 
+IF COM_RST THEN (*M001*)
+    b_e_REQ:=FALSE;
+    y_state:=B#16#0;
+    WRREC.BUSY:=FALSE;
+    RDREC.BUSY:=FALSE;
+    COM_RST:=FALSE;
+END_IF; (*M001*)
+ 
+ERROR:=FALSE;
+DONE:=FALSE;
+ 
+IF NOT b_e_REQ AND REQ AND y_state = B#16#0 THEN
+    y_state:= B#16#1;
+END_IF;
+ 
+b_e_REQ:= REQ;
+ 
+IF y_state = B#16#1 THEN
+    IF NOT WRREC.BUSY THEN
+        tmpSTATUS:= W#16#7001;
+        r_record.header.block_type:= W#16#3D;
+        r_record.header.block_len:= W#16#C;
+        r_record.header.block_ver:= W#16#100;
+        r_record.header.res:= W#16#0;
+        r_record_b[8]:= BCC;
+        r_record_b[9]:=Priority;
+        r_record.e2:= CharacterDelayTime;
+        r_record.e3:= AcknDelayTime;
+        r_record_b[14]:=BuildupAttempts;
+        r_record_b[15]:= RepetitionAttempts;
+    ELSE
+        tmpSTATUS:= W#16#7002;
+    END_IF;
+    WRREC(REQ := NOT(WRREC.BUSY)
+                ,ID := PORT// IN: DWORD
+                ,INDEX := 61 // IN: INT
+                ,LEN := 16 // IN: INT
+                ,RECORD := r_record_b1  // INOUT: ANY
+                );
+   
+    IF WRREC.ERROR THEN
+        IF (WRREC.STATUS AND DW#16#FFFF00) = DW#16#80E100 THEN
+            y_state:= B#16#2;
+        ELSIF (WRREC.STATUS AND DW#16#F500)  = DW#16#C500 THEN
+            ERROR:= TRUE;
+            tmpSTATUS:= W#16#8282;
+            y_state:= B#16#0;
+        ELSIF (WRREC.STATUS AND DW#16#F000) <> DW#16#C000 THEN
+            ERROR:= TRUE;
+            tmpSTATUS:= W#16#8281;
+            y_state:= B#16#0;
+        END_IF;
+    ELSIF NOT WRREC.BUSY THEN
+            tmpSTATUS:=W#16#0;
+            y_state:=B#16#0;
+            DONE:=TRUE;
+    END_IF;
+    STATUS:=tmpSTATUS;
+   
+ELSIF y_state = B#16#2 THEN
+    RDREC(REQ := NOT(RDREC.BUSY)
+                ,ID := PORT// IN: DWORD
+                ,INDEX := 55 // IN: INT
+                ,MLEN := 20 // IN: INT
+                ,RECORD := r_record  // INOUT: ANY
+                );
+    IF RDREC.ERROR THEN (*M00d*)
+        IF (RDREC.STATUS AND DW#16#F500)=DW#16#C500 THEN
+            ERROR:= TRUE;
+            STATUS:= W#16#8282;
+            y_state:= B#16#0;
+        ELSIF (RDREC.STATUS AND DW#16#F000) <> DW#16#C000 THEN
+            ERROR:= TRUE;
+            STATUS:= W#16#8280;
+            y_state:= B#16#0;
+        END_IF;
+    ELSIF NOT RDREC.BUSY THEN
+        STATUS:= r_record.r3964err;
+        y_state:= B#16#0;
+        ERROR:= TRUE;
+    ELSE
+        STATUS:= W#16#7002;
+    END_IF;
+ELSE
+    STATUS:=W#16#7000;
+END_IF;
+ 
+IF ERROR THEN
+    OK := false;
+END_IF;
+ 
+END_FUNCTION_BLOCK

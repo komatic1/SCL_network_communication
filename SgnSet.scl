@@ -1,0 +1,169 @@
+// Name: SgnSet
+// Symbolic Name: Signal_Set
+// Symbol Comment: Set RS-232 signals
+// Family: Freeport
+// Version: 1.0
+// Author: SIMATIC
+// Last modified: 09/28/2012
+// Use: SFB52,SFB53
+// Size in work memory: 780 bytes
+// Object name: Port_Config
+// Signature: generiert vom SCL Übersetzer Version: SCLCOMP K05.03.06.00_01.03.00.01 release
+
+{
+Scl_ResetOptions ;
+Scl_OverwriteBlocks:=           'y' ;
+Scl_GenerateReferenceData :=    'y' ;
+Scl_S7ServerActive:=            'n' ;
+Scl_CreateObjectCode:=          'y' ;
+Scl_OptimizeObjectCode:=        'y' ;
+Scl_MonitorArrayLimits:=        'n' ;
+Scl_CreateDebugInfo :=          'n' ;
+Scl_SetOKFlag:=                 'n' ;
+Scl_SetMaximumStringLength:=    '254'
+}
+FUNCTION_BLOCK FB1616
+TITLE = 'Set RS-232 signals'
+AUTHOR : SIMATIC
+FAMILY : Freeport
+NAME : SgnSet
+VERSION : '1.0'
+ 
+VAR_INPUT
+  REQ : BOOL ;    //Sets the RS 232 signals on rising edge
+  PORT : WORD ;    //Communication port, Hardware Identifier
+  SIGNAL : BYTE ;    //Selects the signals to be set; bit 1H=RTS; 2H=DTR; 4H=DSR; 7H=select all
+  RTS : BOOL ;    //Specifies the level (ON/OFF) of the RTS output
+  DTR : BOOL ;    //Specifies the level (ON/OFF) of the DTR output
+  DSR : BOOL ;    //Specifies the level (ON/OFF) of the DSR output
+END_VAR
+VAR_OUTPUT
+  DONE : BOOL ;    //Instruction finished without error
+  ERROR : BOOL ;    //Instruction finished with error
+  STATUS : WORD  := W#16#7000;    //Detailed error information
+END_VAR
+VAR_IN_OUT
+  COM_RST : BOOL ;    //Complete restart
+END_VAR
+VAR
+  b_e_REQ : BOOL ;    //Edge flag for REQ
+  y_state : BYTE ;    //State of instruction
+  WRREC : "WRREC";    //Local instance of instruction WRREC
+  RDREC : "RDREC";    //Local instance of instruction RDREC
+END_VAR
+VAR_TEMP
+  tmpSTATUS : WORD ;    //Status, when Error occured
+  r_record : STRUCT    
+   header : STRUCT    
+    block_type : WORD ;   
+    block_len : WORD ;   
+    block_ver : WORD ;   
+    res : WORD ;   
+   END_STRUCT ;   
+   e1 : WORD ;   
+   e2 : WORD ;   
+   e3 : WORD ;   
+   e4 : WORD ;   
+   sgnseterr : WORD ;   
+  END_STRUCT ; 
+r_record_b1 AT r_record : STRUCT
+a : ARRAY[0..10] OF BYTE;
+END_STRUCT;
+ r_record_b2 AT r_record : STRUCT
+a : ARRAY[0..120] OF BOOL;
+END_STRUCT;
+ 
+END_VAR
+ 
+IF COM_RST THEN
+    b_e_REQ := false;
+    y_state := b#16#0;
+    WRREC.BUSY := false;
+    RDREC.BUSY := false;
+    COM_RST := false;
+END_IF;
+ 
+ERROR := false;
+DONE := false;
+ 
+IF NOT b_e_REQ AND REQ AND (y_state = B#16#0) THEN
+     y_state := B#16#1;
+END_IF;
+ 
+b_e_REQ := REQ;
+ 
+IF y_state = b#16#1 THEN
+         
+    IF NOT WRREC.BUSY THEN
+        tmpSTATUS := w#16#7001;
+        r_record.header.block_type := w#16#35;
+        r_record.header.block_len :=  W#16#8;
+        r_record.header.block_ver := W#16#100;
+        r_record.header.res := W#16#0;
+        r_record_b1.a[8]:=SIGNAL;
+        r_record_b2.a[72]:=RTS;
+        r_record_b2.a[73]:=DTR;
+        r_record_b2.a[74]:=DSR;
+    ELSE
+        tmpSTATUS := w#16#7002;
+    END_IF;
+    WRREC(REQ := NOT(WRREC.BUSY)
+                ,ID := PORT// IN: DWORD
+                ,INDEX := 53 // IN: INT
+                ,LEN := 12 // IN: INT
+                ,RECORD := r_record_b1  // INOUT: ANY
+                );
+    IF WRREC.ERROR THEN
+        IF (WRREC.STATUS AND DW#16#FFFF00) = DW#16#80E100 THEN
+            y_state := b#16#2;
+        ELSIF (WRREC.STATUS AND DW#16#F500) = DW#16#C500 THEN
+            ERROR := true;
+            tmpSTATUS := w#16#8282;
+            y_state := b#16#0;
+        ELSIF (WRREC.STATUS AND DW#16#F000) <> DW#16#C000 THEN
+            ERROR := true;
+            tmpSTATUS := w#16#8281;
+            y_state := b#16#0;
+        END_IF;
+    ELSIF NOT WRREC.BUSY THEN // possible here is :: ELSE IF NOT WRREC.BUSY
+        tmpSTATUS := w#16#0;
+        y_state := b#16#0;
+        DONE := true;
+    END_IF;
+   
+    STATUS := tmpSTATUS; 
+                  
+ELSIF y_state = b#16#2 THEN
+    RDREC(REQ := NOT(RDREC.BUSY) // IN: BOOL
+        ,ID := PORT // IN: DWORD
+        ,INDEX := 55 // IN: INT
+        ,MLEN := 18 // IN: INT
+        ,RECORD := r_record // INOUT: ANY
+        );
+ 
+    IF RDREC.ERROR THEN
+        IF (RDREC.STATUS AND DW#16#F500) = DW#16#C500 THEN
+            ERROR := true;
+            STATUS := W#16#8282;
+            y_state := b#16#0;
+        ELSIF (RDREC.STATUS AND DW#16#F000) <> DW#16#C000 THEN
+            ERROR := true;
+            STATUS := W#16#8280;
+            y_state := b#16#0;
+        END_IF;
+    ELSIF NOT RDREC.BUSY THEN
+        y_state := b#16#0;
+        STATUS := r_record.sgnseterr;
+        ERROR := true;
+    ELSE
+        STATUS := w#16#7002;
+    END_IF;
+ELSE
+    STATUS := w#16#7000;
+END_IF;
+ 
+IF ERROR THEN
+    OK := false;
+END_IF;
+ 
+END_FUNCTION_BLOCK
